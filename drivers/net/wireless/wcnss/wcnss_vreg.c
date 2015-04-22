@@ -24,6 +24,13 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/unistd.h>
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+#include <asm/uaccess.h>
+#include <linux/file.h>
+#include <linux/fs.h>
+#include <linux/stat.h>
 
 
 static void __iomem *msm_wcnss_base;
@@ -41,6 +48,14 @@ static int is_power_on;
 
 #define PRONTO_IRIS_REG_READ_OFFSET       0x1134
 #define PRONTO_IRIS_REG_CHIP_ID           0x04
+/* IRIS card chip ID's */
+#define WCN3660       0x0200
+#define WCN3660A      0x0300
+#define WCN3660B      0x0400
+#define WCN3620       0x5111
+#define WCN3620A      0x5112
+#define WCN3610       0x9101
+#define WCN3610V1     0x9110
 
 #define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
 #define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
@@ -164,6 +179,96 @@ int xo_auto_detect(u32 reg)
 	default:
 		return WCNSS_XO_INVALID;
 	}
+}
+
+int validate_iris_chip_id(u32 reg)
+{
+	int iris_id;
+	iris_id = reg >> 16;
+
+	switch (iris_id) {
+	case WCN3660:
+	case WCN3660A:
+	case WCN3660B:
+	case WCN3620:
+	case WCN3620A:
+	case WCN3610:
+	case WCN3610V1:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
+void  wcnss_iris_reset(u32 reg, void __iomem *pmu_conf_reg)
+{
+	/* Reset IRIS */
+	reg |= WCNSS_PMU_CFG_IRIS_RESET;
+	writel_relaxed(reg, pmu_conf_reg);
+
+	/* Wait for PMU_CFG.iris_reg_reset_sts */
+	while (readl_relaxed(pmu_conf_reg) &
+			WCNSS_PMU_CFG_IRIS_RESET_STS)
+		cpu_relax();
+
+	/* Reset iris reset bit */
+	reg &= ~WCNSS_PMU_CFG_IRIS_RESET;
+	writel_relaxed(reg, pmu_conf_reg);
+}
+static void chipset_version(u32 reg)
+{
+	struct file *file;
+	loff_t pos = 0;
+	int fd;
+	u32 chipset_id;
+	char chipset[15];
+
+	mm_segment_t old_fs = get_fs();
+
+	chipset_id = reg >> 16;
+
+	switch (chipset_id) {
+	case WCN3660:
+		memcpy(chipset, "WCN3660", sizeof("WCN3660"));
+		break;
+	case WCN3660A:
+		memcpy(chipset, "WCN3660A", sizeof("WCN3660A"));
+		break;
+	case WCN3660B:
+		memcpy(chipset, "WCN3660B", sizeof("WCN3660B"));
+		break;
+	case WCN3620:
+		memcpy(chipset, "WCN3620", sizeof("WCN3620"));
+		break;
+	case WCN3620A:
+		memcpy(chipset, "WCN3620A", sizeof("WCN3620A"));
+		break;
+	case WCN3610:
+		memcpy(chipset, "WCN3610", sizeof("WCN3610"));
+		break;
+	}
+
+	pr_info("wcnss: chipset: %s\n", chipset);
+
+	set_fs(KERNEL_DS);
+	fd = sys_open("/data/.wifichipset.info", O_RDWR | O_CREAT | O_TRUNC, 0644);
+
+	if(fd >=0){
+		file = fget(fd);
+		sys_fchmod(fd, 0644);
+
+		if(file){
+			vfs_write(file, chipset, strlen(chipset), &pos);
+			fput(file);
+		}
+		sys_close(fd);
+	}
+	else {
+		pr_err("Couldn't open /data/.wifichipset.info\n");
+	}
+	set_fs(old_fs);
+
+	return;
 }
 
 static int
