@@ -3504,7 +3504,13 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->next_string_id = composite_string_index;
 		strncpy(manufacturer_string, "SAMSUNG",
 				sizeof(manufacturer_string) - 1);
+#if defined(CONFIG_SEC_FORTUNA_PROJECT)
+		strncpy(product_string, "Samsung_Galaxy_Grand_Prime",
+#elif defined(CONFIG_SEC_GTEL_PROJECT) || defined(CONFIG_SEC_GTES_PROJECT)
+		strncpy(product_string, "Samsung_Galaxy_Tab_E",
+#else
 		strncpy(product_string, "SAMSUNG_Android",
+#endif
 				sizeof(product_string) - 1);
 #else
 		cdev->next_string_id = 0;
@@ -3539,7 +3545,13 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 #endif
 			}
 		strncpy(manufacturer_string, "SAMSUNG", sizeof(manufacturer_string) - 1);
+#if defined(CONFIG_SEC_FORTUNA_PROJECT)
+		strncpy(product_string, "Samsung_Galaxy_Grand_Prime", sizeof(product_string) - 1);
+#elif defined(CONFIG_SEC_GTEL_PROJECT) || defined(CONFIG_SEC_GTES_PROJECT)
+		strncpy(product_string, "Samsung_Galaxy_Tab_E", sizeof(product_string) - 1);
+#else
 		strncpy(product_string, "SAMSUNG_Android", sizeof(product_string) - 1);
+#endif
 /* #endif */
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
