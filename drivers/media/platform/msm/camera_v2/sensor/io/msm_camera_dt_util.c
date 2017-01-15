@@ -835,6 +835,51 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	} else
 		rc = 0;
 
+#if defined(CONFIG_SEC_GTEL_PROJECT) || defined(CONFIG_SEC_GTES_PROJECT)\
+    || defined(CONFIG_SEC_XCOVER3_PROJECT) || defined(CONFIG_SEC_J1X_PROJECT)
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-ext-vana-power", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vana failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-standby invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_VANA_POWER] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_EXT_VANA_POWER] = 1;
+		CDBG("%s qcom,gpio-ext-vana-power %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_VANA_POWER]);
+	} else
+		rc = 0;
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-ext-vio-power", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vio failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-standby invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_CAMIO_EN] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_EXT_CAMIO_EN] = 1;
+		CDBG("%s qcom,gpio-ext-vio-power %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_CAMIO_EN]);
+	} else
+		rc = 0;
+
+#endif
+
 	rc = of_property_read_u32(of_node, "qcom,gpio-af-pwdm", &val);
 	if (rc != -EINVAL) {
 		if (rc < 0) {

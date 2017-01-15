@@ -181,6 +181,36 @@ ifeq ($(CONFIG_SEC_A5_PROJECT),y)
 		dtb-y += msm8916-sec-a5u-kor-r02.dtb
 	endif
 endif
+ifeq ($(CONFIG_SEC_GTEL_PROJECT),y)
+	ifeq ($(CONFIG_MACH_GTEL_USA_VZW),y)
+		dtb-y += msm8916-sec-gtel-vzw-r00.dtb
+		dtb-y += msm8916-sec-gtel-vzw-r01.dtb
+		dtb-y += msm8916-sec-gtel-vzw-r02.dtb
+		dtb-y += msm8916-sec-gtel-vzw-r03.dtb
+		dtb-y += msm8916-sec-gtel-vzw-r04.dtb
+		dtb-y += msm8916-sec-gtel-vzw-r05.dtb
+	else ifeq ($(CONFIG_MACH_GTELWIFI_USA_OPEN),y)
+		dtb-y += msm8916-sec-gtelwifi-usa-r00.dtb
+		dtb-y += msm8916-sec-gtelwifi-usa-r01.dtb
+		dtb-y += msm8916-sec-gtelwifi-usa-r02.dtb
+		dtb-y += msm8916-sec-gtelwifi-usa-r03.dtb
+		dtb-y += msm8916-sec-gtelwifi-usa-r04.dtb
+		dtb-y += msm8916-sec-gtelwifi-usa-r05.dtb
+	endif
+endif
+ifeq ($(CONFIG_SEC_GTES_PROJECT),y)
+	ifeq ($(CONFIG_MACH_GTES_USA_SPR),y)
+		dtb-y += msm8916-sec-gteslte-spr-r00.dtb
+		dtb-y += msm8916-sec-gteslte-spr-r01.dtb
+		dtb-y += msm8916-sec-gteslte-spr-r04.dtb
+	endif
+	ifeq ($(CONFIG_MACH_GTES_USA_USC),y)
+		dtb-y += msm8916-sec-gteslte-usc-r00.dtb
+		dtb-y += msm8916-sec-gteslte-usc-r01.dtb
+		dtb-y += msm8916-sec-gteslte-usc-r04.dtb
+	endif
+endif
+
 endif
 
 ifeq ($(CONFIG_SEC_FORTUNA_PROJECT),y)

@@ -81,6 +81,18 @@
 #define EXT_CAM_CONTRAST	8
 #define EXT_CAM_EXIF		9
 #define EXT_CAM_SET_AE_AWB	10
+//Focus related enums
+#define EXT_CAM_AF              11
+#define EXT_CAM_FOCUS           12
+#define EXT_CAM_SET_TOUCHAF_POS	13
+#define EXT_CAM_SET_AF_STATUS	14
+#define EXT_CAM_GET_AF_STATUS	15
+#define EXT_CAM_GET_AF_RESULT	16
+#define EXT_CAM_SET_AF_STOP     17
+#define EXT_CAM_FLASH_MODE      18
+#define EXT_CAM_SET_FLASH       19
+#define EXT_CAM_VT_MODE         20
+#define EXT_CAM_FPS_RANGE       21
 
 //Exposure Compensation
 #define CAMERA_EV_M4		0
@@ -240,6 +252,10 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_FL_RESET,
 	SENSOR_GPIO_VT_RESET,
 	SENSOR_GPIO_VT_STANDBY,
+	SENSOR_GPIO_EXT_VANA_POWER,
+	SENSOR_GPIO_EXT_CAMIO_EN,
+	SENSOR_GPIO_OIS_EN,
+	SENSOR_GPIO_OIS_RESET,
 	SENSOR_GPIO_MAX,
 };
 
