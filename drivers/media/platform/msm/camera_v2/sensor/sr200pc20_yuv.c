@@ -12,7 +12,11 @@
  */
 
 #include "sr200pc20.h"
+#if defined (CONFIG_SEC_GTEL_PROJECT) || defined(CONFIG_SEC_GTES_PROJECT)
+#include "sr200pc20_yuv_gte.h"
+#else
 #include "sr200pc20_yuv.h"
+#endif
 
 #include "msm_sd.h"
 #include "camera.h"
@@ -40,7 +44,11 @@ static exif_data_t sr200pc20_exif;
 bool init_setting_write = FALSE;
 
 #if defined CONFIG_SEC_CAMERA_TUNING
+#if defined(CONFIG_SEC_GTEL_PROJECT) || defined(CONFIG_SEC_GTES_PROJECT)
+#define FILENAME "/data/sr200pc20_yuv_gte.h"
+#else
 #define FILENAME "/data/sr200pc20_yuv.h"
+#endif
 extern int register_read_from_sdcard (struct msm_camera_i2c_reg_conf *settings,
 						struct msm_sensor_ctrl_t *s_ctrl,
 						enum msm_camera_i2c_data_type data_type,
