@@ -350,3 +350,9 @@ config DB8221A
 	---help---
 	  Dongbu HiTek 2.0MP sensor,
 	  Front sensor.
+
+config CAM_DUAL_POWER_SEQ
+	bool "Dual power up sequence enable"
+	depends on MSMB_CAMERA
+	---help---
+		This flag will allow us to write dual power up sequence.
