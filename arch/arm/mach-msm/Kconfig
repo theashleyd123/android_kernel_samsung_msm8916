@@ -1612,6 +1612,14 @@ config FSM9900_GSM_NL
 	  The serial port connection can be established to communicate with the
 	  GSM NL module.
 
+config BARCODE_PAINTER
+        bool "Bootloader Barcode Print MSM8916"
+        depends on ARCH_MSM8916
+        default n
+        help
+          This option is used to add Barcode Print Func.
+          Say Y if you want to enable this feature.
+
 config SAMSUNG_PRODUCT_SHIP
         bool "set up for product shipping"
         default n
