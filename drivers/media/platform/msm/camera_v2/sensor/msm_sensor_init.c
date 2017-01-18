@@ -171,6 +171,8 @@ static ssize_t front_camera_type_show(struct device *dev,
 	char cam_type[] = "SLSI_S5K5E3YX\n";
 #elif defined(CONFIG_SR200PC20)
 	char cam_type[] = "SILICONFILE_SR200PC20\n";
+#elif defined(CONFIG_DB8221A)
+	char cam_type[] = "DONGBU_DB8221A\n";
 #else
 	char cam_type[] = "NULL\n";
 #endif
@@ -290,6 +292,8 @@ char front_cam_fw_ver[25] = "S5K5E3YX N\n";
 char front_cam_fw_ver[25] = "S5K6A3YX N\n";
 #elif defined(CONFIG_SR200PC20)
 	char front_cam_fw_ver[25] = "SR200PC20M N\n";
+#elif defined(CONFIG_DB8221A)
+	char front_cam_fw_ver[25] = "DB8221A N\n";
 #else
 char front_cam_fw_ver[25] = "NULL NULL\n";
 #endif

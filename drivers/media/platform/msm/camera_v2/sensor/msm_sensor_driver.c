@@ -33,6 +33,9 @@ static int table_size;
 #if defined(CONFIG_S5K4ECGX)
 #include "s5k4ecgx.h"
 #endif
+#if defined(CONFIG_DB8221A)
+#include "db8221a.h"
+#endif
 
 /* Logging macro */
 //#define MSM_SENSOR_DRIVER_DEBUG
@@ -64,6 +67,15 @@ static struct msm_sensor_fn_t s5k4ecgx_sensor_func_tbl = {
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = s5k4ecgx_sensor_match_id,
 	.sensor_native_control = s5k4ecgx_sensor_native_control,
+};
+#endif
+#if defined(CONFIG_DB8221A)
+static struct msm_sensor_fn_t db8221a_sensor_func_tbl = {
+	.sensor_config = db8221a_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = msm_sensor_match_id,
+	.sensor_native_control = db8221a_sensor_native_control,
 };
 #endif
 
@@ -435,7 +447,11 @@ int32_t msm_sensor_driver_probe(void *setting)
 		s_ctrl->func_tbl = &s5k4ecgx_sensor_func_tbl;
 	}
 #endif
-
+#if defined(CONFIG_DB8221A)
+	if(slave_info->camera_id == CAMERA_2){
+		s_ctrl->func_tbl = &db8221a_sensor_func_tbl ;
+	}
+#endif
 	CDBG("s_ctrl[%d] %p", slave_info->camera_id, s_ctrl);
 
 	if (s_ctrl->is_probe_succeed == 1) {

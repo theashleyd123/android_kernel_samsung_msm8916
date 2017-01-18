@@ -135,6 +135,14 @@ int32_t msm_camera_cci_i2c_write(struct msm_camera_i2c_client *client,
 	}
 #endif
 
+#if defined(CONFIG_DB8221A)
+	if (addr == 0xfe){
+		pr_err("delay START = %d\n", (int)data*10);
+		msleep(data);
+		return 0;
+	}
+#endif
+
 	rc = v4l2_subdev_call(client->cci_client->cci_subdev,
 			core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
 	if (rc < 0) {
