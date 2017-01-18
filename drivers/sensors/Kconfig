@@ -116,7 +116,7 @@ config SENSORS_SX9500
 
 config SENSORS_SX9500_INIT_TOUCH_THRESHOLD
 	int "SX9500 Grip sensor threshold for init touch"
-	depends on SENSORS_SX9500
+	depends on I2C
 	default "3000"
 	help
 	  This value is the standard of init touch using
@@ -124,14 +124,14 @@ config SENSORS_SX9500_INIT_TOUCH_THRESHOLD
 
 config SENSORS_SX9500_NORMAL_TOUCH_THRESHOLD
 	int "SX9500 Grip sensor threshold for normal touch"
-	depends on SENSORS_SX9500
+	depends on I2C
 	default "17"
 	help
 	  This value is the standard of normal touch using
 	  SemTech sx9500 device driver.
 
 config SENSORS_SX9500_TEMPERATURE_COMPENSATION
-	depends on SENSORS_SX9500
+	depends on I2C
 	tristate "SX9500 Grip sensor temperature compensation"
 	default n
 	help
@@ -140,7 +140,7 @@ config SENSORS_SX9500_TEMPERATURE_COMPENSATION
 	  temperature compensation code.
 
 config SENSORS_SX9500_DEFENCE_CODE_FOR_TA_NOISE
-	depends on SENSORS_SX9500
+	depends on I2C
 	tristate "SX9500 Grip sensor defence code for TA noise"
 	default n
 	help
@@ -149,7 +149,7 @@ config SENSORS_SX9500_DEFENCE_CODE_FOR_TA_NOISE
 	  defence code for TA noise.
 
 config SENSORS_SX9500_REGULATOR_ONOFF
-	depends on SENSORS_SX9500
+	depends on I2C
 	tristate "SX9500 Grip sensor Regulator"
 	default n
 	help
@@ -210,6 +210,17 @@ config SENSORS_SX9500_WIFI_REGULATOR_ONOFF
 	  Say Y here if you use regulator for grip sensor for WIFI.
 	  This option enables regulator for grip sensor using
 	  SemTech sx9500 device driver for WIFI.
+
+config SENSORS_SX9500_ALWAYS
+	depends on I2C
+	tristate "SX9500 driver"
+	default n
+	help
+	  Say Y here if you use sx9500 always on mode.
+	  This option enables grip sensors using
+	  SemTech sx9500 device driver.
+
+	  Say N here if you do not use sx9500.
 
 config SENSORS_BMA2X2
 	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
