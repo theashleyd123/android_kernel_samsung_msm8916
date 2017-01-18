@@ -218,6 +218,10 @@ struct sec_battery_info {
 	int earjack_wr_input_current_1st;
 	int earjack_wr_input_current_2nd;
 #endif
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	bool sw_self_discharging;
+	struct wake_lock self_discharging_wake_lock;
+#endif
 };
 
 #if defined(CONFIG_MACH_KOR_EARJACK_WR)
@@ -332,6 +336,9 @@ enum {
 	BATT_DISCHARGING_NTC,
 	BATT_DISCHARGING_NTC_ADC,
 	BATT_SELF_DISCHARGING_CONTROL,
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	BATT_SW_SELF_DISCHARGING,
+#endif
 };
 
 #ifdef CONFIG_OF
