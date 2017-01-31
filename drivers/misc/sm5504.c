@@ -744,6 +744,10 @@ int check_sm5504_jig_state(void)
 }
 EXPORT_SYMBOL(check_sm5504_jig_state);
 
+#if defined(CONFIG_TOUCHSCREEN_IST30XX) || defined(CONFIG_TOUCHSCREEN_IST30XX_CORE3) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+extern void charger_enable(int enable);
+#endif
+
 #if defined(CONFIG_MUIC_SM5504_SUPPORT_LANHUB_TA)
 static void sm5504_set_lanhub(struct sm5504_usbsw *usbsw, int state)
 {
@@ -965,7 +969,9 @@ static int sm5504_attach_dev(struct sm5504_usbsw *usbsw)
 #if defined(CONFIG_VIDEO_MHL_V2)
 	/*u8 mhl_ret = 0;*/
 #endif
-
+#if defined(CONFIG_TOUCHSCREEN_MMS144) || defined(CONFIG_TOUCHSCREEN_IST30XX) || defined(CONFIG_TOUCHSCREEN_IST30XX_CORE3) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+	int tsp_noti_ignore = 0;
+#endif
 	val1 = i2c_smbus_read_byte_data(client, REG_DEVICE_TYPE1);
 	if (val1 < 0) {
 		dev_err(&client->dev, "%s: err %d\n", __func__, val1);
@@ -1181,8 +1187,19 @@ static int sm5504_attach_dev(struct sm5504_usbsw *usbsw)
 					SM5504_ATTACHED);
 			usbsw->undefined_attached = true;
 		}
+#if defined(CONFIG_TOUCHSCREEN_MMS144) || defined(CONFIG_TOUCHSCREEN_IST30XX) || defined(CONFIG_TOUCHSCREEN_IST30XX_CORE3) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+		else{
+			tsp_noti_ignore = 1;
+			printk("[TSP] detached, but don't noti \n");
+		}
+		if(!tsp_noti_ignore)
+#if defined(CONFIG_TOUCHSCREEN_MMS144) 
+			tsp_charger_infom(1);
+#else
+		charger_enable(1);
+#endif
+#endif
 	}
-
 #if !defined(CONFIG_USBID_STANDARD_VER_01)
 attach_end:
 #endif
@@ -1197,7 +1214,10 @@ attach_end:
 static int sm5504_detach_dev(struct sm5504_usbsw *usbsw)
 {
 	struct sm5504_platform_data *pdata = usbsw->pdata;
+#if defined(CONFIG_TOUCHSCREEN_MMS144) || defined(CONFIG_TOUCHSCREEN_IST30XX) || defined(CONFIG_TOUCHSCREEN_IST30XX_CORE3) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+	int tsp_noti_ignore = 0;
 
+#endif
 	pr_err("%s\n", __func__);
 	pr_err("dev1: 0x%x,dev2: 0x%x,chg_typ: 0x%x,vbus %d,ADC: 0x%x,Jig: %s\n",
 			usbsw->dev1, usbsw->dev2, usbsw->dev3, usbsw->vbus, usbsw->adc,
@@ -1351,6 +1371,18 @@ static int sm5504_detach_dev(struct sm5504_usbsw *usbsw)
 			SM5504_DETACHED);
 		usbsw->undefined_attached = false;
 	}
+#if defined(CONFIG_TOUCHSCREEN_MMS144) || defined(CONFIG_TOUCHSCREEN_IST30XX) || defined(CONFIG_TOUCHSCREEN_IST30XX_CORE3) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+	else{
+		tsp_noti_ignore = 1;
+		printk("[TSP] detached, but don't noti \n");
+	}
+	if(!tsp_noti_ignore)
+#if defined(CONFIG_TOUCHSCREEN_MMS144) 
+		tsp_charger_infom(0);
+#else
+		charger_enable(0);
+#endif
+#endif
 
 #if !defined(CONFIG_USBID_STANDARD_VER_01)
 detach_end:
