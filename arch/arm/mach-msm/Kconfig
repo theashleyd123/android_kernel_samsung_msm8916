@@ -754,6 +754,34 @@ config MACH_A53G_EUR_OPEN
 		help
 		  Support for Samsung A53G EUR Open device.
 
+config MACH_FORTUNA_CMCC
+	depends on SEC_FORTUNA_PROJECT
+		default n
+		bool "Samsung FORTUNA China"
+		help
+		  Support for Samsung FORTUNA China device.
+
+config MACH_FORTUNA_CU
+	depends on SEC_FORTUNA_PROJECT
+		default n
+		bool "Samsung FORTUNA China"
+		help
+		  Support for Samsung FORTUNA China device.
+
+config MACH_FORTUNA_CTC
+	depends on SEC_FORTUNA_PROJECT
+		default n
+		bool "Samsung FORTUNA China"
+		help
+		  Support for Samsung FORTUNA China device.
+
+config MACH_FORTUNA_CHN_ZT
+	depends on SEC_FORTUNA_PROJECT
+		default n
+		bool "Samsung FORTUNA China TW"
+		help
+		  Support for Samsung FORTUNA China TW device.
+
 config SEC_ROSSA_PROJECT
     depends on ARCH_MSM8916
 	default n
