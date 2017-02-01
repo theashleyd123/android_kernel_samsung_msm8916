@@ -293,6 +293,13 @@ config S5K5E3YX
 		S.LSI. 5MP Bayer Sensor with auto focus, uses
 		2 mipi lanes full resolution @30fps
 
+config S5K4ECGX
+	bool "Sensor s5k4ecgx (SOC 5MP)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 5 MP SOC Sensor. It uses 2 mipi lanes,
+		Support auto focus, and flash
+
 config OV12830
 	bool "OmniVision OV12830 (BAYER 12MP)"
 	depends on MSMB_CAMERA
