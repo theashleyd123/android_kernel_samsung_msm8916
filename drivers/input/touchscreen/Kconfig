@@ -1110,6 +1110,18 @@ config TOUCHSCREEN_MMS300A_WAKE_GESTURE
         depends on TOUCHSCREEN_MMS300_A
         default y
 
+config TOUCHSCREEN_ZT7554_TS
+        tristate "ZINITIX ZT7554 I2C Touchscreen"
+        depends on I2C
+           help
+             Say Y here if you have the Imagis ZINITIX ZT7554 I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called Zinitix.         
+
 source "drivers/input/touchscreen/stm_fts/Kconfig"
 source "drivers/input/touchscreen/mxt_t/Kconfig"
 source "drivers/input/touchscreen/cyttsp5/Kconfig"

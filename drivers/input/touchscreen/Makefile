@@ -87,6 +87,7 @@ obj-$(CONFIG_TOUCHSCREEN_IST30XX_CORE3) += imagis_core3/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S7301)      += synaptics_s7301.o synaptics_fw_updater.o synaptics_sysfs.o
 obj-$(CONFIG_TOUCHSCREEN_MMS300)   += mms300.o
 obj-$(CONFIG_TOUCHSCREEN_MMS300_A)   += mms300_a.o
+obj-$(CONFIG_TOUCHSCREEN_ZT7554_TS)    += zt7554_ts.o
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT1664T)    += mxt_t/
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+= stm_fts/
 obj-$(CONFIG_TOUCHSCREEN_CYTTSP5)	+= cyttsp5/
