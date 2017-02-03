@@ -53,6 +53,7 @@ obj-y				+= carma/
 obj-$(CONFIG_USB_SWITCH_FSA9480) += fsa9480.o
 obj-$(CONFIG_SM5502_MUIC) += sm5502.o
 obj-$(CONFIG_SM5504_MUIC) += sm5504.o
+obj-$(CONFIG_SM5703_MUIC) += sm5703-muic.o
 obj-$(CONFIG_ALTERA_STAPL)	+=altera-stapl/
 obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/

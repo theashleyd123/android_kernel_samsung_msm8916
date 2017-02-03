@@ -538,6 +538,18 @@ config FLASHLIGHT
 	help
 	  This option enables the led sysfs class in /sys/class/flashlight.
 
+config FLED_SM5703
+	tristate "Siliconmitus SM5703 flash LED driver"
+	depends on SM_FLASH_LED
+	help
+	  A driver for Siliconmitus SM5703 flash LED
+
+config FLED_SM5703_EXT_GPIO
+	bool "External(or ISP) GPIO"
+	  help
+	  Use GPIO pins to enable/disable torch and flash light.
+	  If unsure, say N.
+
 config RT_FLASH_LED
 	tristate "Richtek flash LED driver support"
 	depends on FLASHLIGHT
