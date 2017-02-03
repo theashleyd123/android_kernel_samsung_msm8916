@@ -169,6 +169,8 @@ static ssize_t front_camera_type_show(struct device *dev,
 	char cam_type[] = "SLSI_S5K6A3YX\n";
 #elif defined(CONFIG_S5K5E3YX)
 	char cam_type[] = "SLSI_S5K5E3YX\n";
+#elif defined(CONFIG_SR030PC50)
+	char cam_type[] = "SILICONFILE_SR030PC50\n";
 #elif defined(CONFIG_SR200PC20)
 	char cam_type[] = "SILICONFILE_SR200PC20\n";
 #elif defined(CONFIG_DB8221A)
@@ -290,6 +292,8 @@ static ssize_t back_camera_firmware_factory_store(struct device *dev,
 char front_cam_fw_ver[25] = "S5K5E3YX N\n";
 #elif defined(CONFIG_S5K6A3YX)
 char front_cam_fw_ver[25] = "S5K6A3YX N\n";
+#elif defined(CONFIG_SR030PC50)
+	char cam_fw[] = "SR030PC50 N\n";
 #elif defined(CONFIG_SR200PC20)
 	char front_cam_fw_ver[25] = "SR200PC20M N\n";
 #elif defined(CONFIG_DB8221A)

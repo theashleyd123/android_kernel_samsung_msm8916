@@ -33,6 +33,9 @@ static int table_size;
 #if defined(CONFIG_S5K4ECGX)
 #include "s5k4ecgx.h"
 #endif
+#if defined(CONFIG_SR030PC50)
+#include "sr030pc50.h"
+#endif
 #if defined(CONFIG_DB8221A)
 #include "db8221a.h"
 #endif
@@ -67,6 +70,15 @@ static struct msm_sensor_fn_t s5k4ecgx_sensor_func_tbl = {
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = s5k4ecgx_sensor_match_id,
 	.sensor_native_control = s5k4ecgx_sensor_native_control,
+};
+#endif
+#if defined(CONFIG_SR030PC50)
+static struct msm_sensor_fn_t sr030pc50_sensor_func_tbl = {
+	.sensor_config = sr030pc50_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = sr030pc50_sensor_match_id,
+	.sensor_native_control = sr030pc50_sensor_native_control,
 };
 #endif
 #if defined(CONFIG_DB8221A)
@@ -445,6 +457,11 @@ int32_t msm_sensor_driver_probe(void *setting)
 #if defined(CONFIG_S5K4ECGX)
 	if (slave_info->camera_id == CAMERA_0){
 		s_ctrl->func_tbl = &s5k4ecgx_sensor_func_tbl;
+	}
+#endif
+#if defined(CONFIG_SR030PC50)
+	if(slave_info->camera_id == CAMERA_2){
+		s_ctrl->func_tbl = &sr030pc50_sensor_func_tbl;
 	}
 #endif
 #if defined(CONFIG_DB8221A)

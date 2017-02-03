@@ -204,6 +204,14 @@ config SR200PC20
 	---help---
 	  Siliconfile 2.0MP sensor,
 	  Front sensor.
+config SR030PC50
+	bool "Sensor for front camera"
+	depends on MSMB_CAMERA
+	default n
+	---help---
+	  Siliconfile VGA sensor,
+	  Front sensor.
+
 config SR544
     bool "Sensor for back camera"
 	depends on MSMB_CAMERA
