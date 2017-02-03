@@ -357,6 +357,12 @@ config CAM_USE_EXT_VANA_GPIO
 	depends on MSMB_CAMERA
 	---help---
 	  Board use external LDO controlled by GPIO.
+config SR130PC20
+	bool "Sensor s5k4e1 (SOC 1.3MP)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 1.3 MP SOC Sensor. It uses 1 mipi lanes,
+		Does not support auto focus, and flash
 
 config DB8221A
 	bool "Sensor for front camera"

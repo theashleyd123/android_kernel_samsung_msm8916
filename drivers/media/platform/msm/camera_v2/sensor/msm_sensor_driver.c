@@ -27,6 +27,9 @@
 static char *regs_table = NULL;
 static int table_size;
 #endif
+#if defined(CONFIG_SR130PC20)
+#include "sr130pc20.h"
+#endif
 #if defined(CONFIG_SR200PC20)
 #include "sr200pc20.h"
 #endif
@@ -53,6 +56,16 @@ static int table_size;
 
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
+
+#if defined(CONFIG_SR130PC20)
+static struct msm_sensor_fn_t sr130pc20_sensor_func_tbl = {
+	.sensor_config = sr130pc20_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = sr130pc20_sensor_match_id,
+	.sensor_native_control = sr130pc20_sensor_native_control,
+};
+#endif
 
 #if defined(CONFIG_SR200PC20)
 static struct msm_sensor_fn_t sr200pc20_sensor_func_tbl = {
@@ -449,6 +462,14 @@ int32_t msm_sensor_driver_probe(void *setting)
 		rc = -EINVAL;
 		goto FREE_SLAVE_INFO;
 	}
+#if defined(CONFIG_SR130PC20)
+	if(slave_info->camera_id == CAMERA_2){
+
+		s_ctrl->func_tbl = &sr130pc20_sensor_func_tbl ;
+		sr130pc20_set_default_settings();
+
+	}
+#endif
 #if defined(CONFIG_SR200PC20)
 	if(slave_info->camera_id == CAMERA_2){
 		s_ctrl->func_tbl = &sr200pc20_sensor_func_tbl ;
