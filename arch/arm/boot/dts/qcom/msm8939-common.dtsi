@@ -560,7 +560,7 @@
 		compatible = "qcom,memshare";
 
 		qcom,client_1 {
-			compatible = "memshare,peripheral";
+			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <2097152>;
 			label = "modem";
 		};
@@ -917,7 +917,7 @@
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 97 0>, <0 238 0>;
 		spi-max-frequency = <19200000>;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi0_default &spi0_cs0_active>;
 		pinctrl-1 = <&spi0_sleep &spi0_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
@@ -988,12 +988,12 @@
 		#size-cells = <0>;
 		reg-names = "spi_physical", "spi_bam_physical";
 		reg = <0x78b9000 0x1000>,
-			<0x7884000 0x19000>;
+			<0x7884000 0x23000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 99 0>, <0 238 0>;
 		spi-max-frequency = <18000000>;
 		qcom,use-pinctrl;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi5_default &spi5_cs0_active>;
 		pinctrl-1 = <&spi5_sleep &spi5_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
@@ -1493,6 +1493,12 @@
 		qcom,reg-presets = <0xE0020 0x0aaaaaaa>,
 			<0xE0024 0x0aaaaaaa>,
 			<0x80124 0x00000003>;
+		qcom,qdss-presets = <0x825000 0x1000>,
+			<0x826000 0x1000>,
+			<0x821000 0x1000>,
+			<0x802000 0x1000>,
+			<0x9180000 0x1000>,
+			<0x9181000 0x1000>;
 		qcom,max-hw-load = <489600>; /* 1080p @ 30 + 1080p @ 30 */
 		qcom,enable-idle-indicator;
 		qcom,vidc-iommu-domains {

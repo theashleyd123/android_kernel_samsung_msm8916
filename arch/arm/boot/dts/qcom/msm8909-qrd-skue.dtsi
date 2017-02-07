@@ -23,7 +23,7 @@
 			compatible = "focaltech,5x06";
 			reg = <0x38>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0x2008>;
+			interrupts = <13 0x2>;
 			vdd-supply = <&pm8909_l17>;
 			vcc_i2c-supply = <&pm8909_l6>;
 			/* pins used by touchscreen */
@@ -34,7 +34,7 @@
 			focaltech,name = "ft6306";
 			focaltech,family-id = <0x36>;
 			focaltech,reset-gpio = <&msm_gpio 12 0x0>;
-			focaltech,irq-gpio = <&msm_gpio 13 0x2008>;
+			focaltech,irq-gpio = <&msm_gpio 13 0x0>;
 			focaltech,display-coords = <0 0 480 854>;
 			focaltech,panel-coords = <0 0 480 950>;
 			focaltech,button-map= <139 102 158>;
@@ -65,4 +65,44 @@
 		qcom,key-codes = <139 172 158>;
 		qcom,y-offset = <0>;
 	};
+};
+
+&spmi_bus {
+	qcom,pm8909@0 {
+		qcom,leds@a300 {
+			status = "okay";
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,name = "button-backlight";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+	};
+};
+
+&sdc2_cd_on {
+        /delete-property/ bias-pull-up;
+        bias-pull-down;
+};
+
+&sdc2_cd_off {
+        /delete-property/ bias-disable;
+        bias-pull-down;
+};
+
+&sdhc_2 {
+        qcom,nonremovable;
+
+        interrupts = <0 1>;
+        interrupt-map = <0 &intc 0 125 0
+                1 &intc 0 221 0>;
+        interrupt-names = "hc_irq", "pwr_irq";
+        /delete-property/ cd-gpios;
 };

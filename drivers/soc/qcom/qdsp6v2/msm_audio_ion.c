@@ -47,7 +47,6 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr)
 {
 	int rc = -EINVAL;
-	unsigned long err_ion_ptr = 0;
 
 	if ((msm_audio_ion_data.smmu_enabled == true) &&
 	    (msm_audio_ion_data.group == NULL)) {
@@ -75,11 +74,12 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 					ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
 		}
 		if (IS_ERR_OR_NULL((void *) (*handle))) {
-			if (IS_ERR((void *)(*handle)))
-				err_ion_ptr = PTR_ERR((int *)(*handle));
-			pr_err("%s:ION alloc fail err ptr=%ld, smmu_enabled=%d\n",
-			__func__, err_ion_ptr, msm_audio_ion_data.smmu_enabled);
-			rc = -ENOMEM;
+			if ((void *)(*handle) != NULL)
+				rc = *(int *)(*handle);
+			else
+				rc = -ENOMEM;
+			pr_err("%s:ION mem alloc fail rc=%d, smmu_enabled=%d\n",
+				__func__, rc, msm_audio_ion_data.smmu_enabled);
 			goto err_ion_client;
 		}
 	} else {

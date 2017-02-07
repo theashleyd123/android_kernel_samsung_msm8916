@@ -764,7 +764,7 @@ static struct msm_cam_clk_info cam_8960_clk_info[] = {
 };
 
 static struct msm_cam_clk_info cam_8974_clk_info[] = {
-	[SENSOR_CAM_MCLK] = {"cam_src_clk", 24000000},
+	[SENSOR_CAM_MCLK] = {"cam_src_clk", 19200000},
 	[SENSOR_CAM_CLK] = {"cam_clk", 0},
 };
 
@@ -775,31 +775,6 @@ static struct v4l2_subdev_core_ops msm_eeprom_subdev_core_ops = {
 static struct v4l2_subdev_ops msm_eeprom_subdev_ops = {
 	.core = &msm_eeprom_subdev_core_ops,
 };
-
-static int msm_eeprom_i2c_remove(struct i2c_client *client)
-{
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct msm_eeprom_ctrl_t  *e_ctrl;
-	if (!sd) {
-		pr_err("%s: Subdevice is NULL\n", __func__);
-		return 0;
-	}
-
-	e_ctrl = (struct msm_eeprom_ctrl_t *)v4l2_get_subdevdata(sd);
-	if (!e_ctrl) {
-		pr_err("%s: eeprom device is NULL\n", __func__);
-		return 0;
-	}
-
-	kfree(e_ctrl->cal_data.mapdata);
-	kfree(e_ctrl->cal_data.map);
-	if (e_ctrl->eboard_info) {
-		kfree(e_ctrl->eboard_info->power_info.gpio_conf);
-		kfree(e_ctrl->eboard_info);
-	}
-	kfree(e_ctrl);
-	return 0;
-}
 
 #define msm_eeprom_spi_parse_cmd(spic, str, name, out, size)		\
 	{								\
@@ -968,6 +943,39 @@ ERROR1:
 	pr_err("msm_eeprom_get_dt_data: %d\n", __LINE__);
 	kfree(power_info->power_setting);
 	return rc;
+}
+
+
+static int msm_eeprom_cmm_dts(struct msm_eeprom_board_info *eb_info,
+				struct device_node *of_node)
+{
+	int rc = 0;
+	struct msm_eeprom_cmm_t *cmm_data = &eb_info->cmm_data;
+
+	cmm_data->cmm_support =
+		of_property_read_bool(of_node, "qcom,cmm-data-support");
+	if (!cmm_data->cmm_support)
+		return -EINVAL;
+	cmm_data->cmm_compression =
+		of_property_read_bool(of_node, "qcom,cmm-data-compressed");
+	if (!cmm_data->cmm_compression)
+		CDBG("No MM compression data\n");
+
+	rc = of_property_read_u32(of_node, "qcom,cmm-data-offset",
+				  &cmm_data->cmm_offset);
+	if (rc < 0)
+		CDBG("No MM offset data\n");
+
+	rc = of_property_read_u32(of_node, "qcom,cmm-data-size",
+				  &cmm_data->cmm_size);
+	if (rc < 0)
+		CDBG("No MM size data\n");
+
+	CDBG("cmm_support: cmm_compr %d, cmm_offset %d, cmm_size %d\n",
+		cmm_data->cmm_compression,
+		cmm_data->cmm_offset,
+		cmm_data->cmm_size);
+	return 0;
 }
 
 static int msm_eeprom_spi_setup(struct spi_device *spi)
@@ -1169,137 +1177,7 @@ static int msm_eeprom_spi_remove(struct spi_device *sdev)
 	kfree(e_ctrl);
 	return 0;
 }
-static int msm_eeprom_i2c_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
-{
-	int rc = 0;
-	uint32_t temp = 0;
-	struct msm_eeprom_ctrl_t *e_ctrl = NULL;
-	struct msm_camera_power_ctrl_t *power_info = NULL;
-	struct device_node *of_node = client->dev.of_node;
-	pr_err("%s E\n", __func__);
 
-	if (!of_node) {
-		pr_err("%s of_node NULL\n", __func__);
-		rc = -EINVAL;
-		goto probe_failure;
-	}
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		pr_err("%s i2c_check_functionality failed\n", __func__);
-		rc = -EINVAL;
-		goto probe_failure;
-	}
-	e_ctrl = kzalloc(sizeof(struct msm_eeprom_ctrl_t), GFP_KERNEL);
-	if (!e_ctrl) {
-		pr_err("%s:%d kzalloc failed\n", __func__, __LINE__);
-		rc = -ENOMEM;
-		goto probe_failure;
-	}
-	e_ctrl->eeprom_v4l2_subdev_ops = &msm_eeprom_subdev_ops;
-	e_ctrl->eeprom_mutex = &msm_eeprom_mutex;
-	CDBG("%s client = %x\n", __func__, (unsigned int)client);
-	e_ctrl->eboard_info = kzalloc(sizeof(
-		struct msm_eeprom_board_info), GFP_KERNEL);
-	if (!e_ctrl->eboard_info) {
-		pr_err("%s:%d board info NULL\n", __func__, __LINE__);
-		rc = -ENOMEM;
-		goto board_free;
-	}
-	rc = of_property_read_u32(of_node, "qcom,slave-addr", &temp);
-	if (rc < 0) {
-		pr_err("%s failed rc %d\n", __func__, rc);
-		goto memdata_free;
-	}
-	rc = of_property_read_u32(of_node, "cell-index", &e_ctrl->subdev_id);
-	pr_err("cell-index/subdev_id %d, rc %d\n", e_ctrl->subdev_id, rc);
-	if (rc < 0) {
-		pr_err("failed read, rc %d\n", rc);
-		goto memdata_free;
-	}
-
-	power_info = &e_ctrl->eboard_info->power_info;
-	e_ctrl->eboard_info->i2c_slaveaddr = temp;
-	e_ctrl->i2c_client.client = client;
-	e_ctrl->is_supported = 0;
-	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
-	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_qup_func_tbl;
-	if (e_ctrl->eboard_info->i2c_slaveaddr != 0)
-		e_ctrl->i2c_client.client->addr =
-					e_ctrl->eboard_info->i2c_slaveaddr;
-	power_info->clk_info = cam_8960_clk_info;
-	power_info->clk_info_size = ARRAY_SIZE(cam_8960_clk_info);
-	power_info->dev = &client->dev;
-	rc = of_property_read_string(of_node, "qcom,eeprom-name",
-		&e_ctrl->eboard_info->eeprom_name);
-	CDBG("%s qcom,eeprom-name %s, rc %d\n", __func__,
-		e_ctrl->eboard_info->eeprom_name, rc);
-	if (rc < 0) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto memdata_free;
-	}
-	rc = msm_eeprom_get_dt_data(e_ctrl);
-	if (rc)
-		goto memdata_free;
-	rc = msm_eeprom_parse_memory_map(of_node, "cal",
-					 &e_ctrl->cal_data);
-	if (rc < 0)
-		pr_warn("%s: no cal memory map\n", __func__);
-	rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
-		&e_ctrl->i2c_client);
-	if (rc) {
-		pr_err("%s failed power up %d\n", __func__, __LINE__);
-		goto memdata_free;
-	}
-	if (e_ctrl->cal_data.map) {
-		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
-		if (rc < 0) {
-			pr_err("%s: read cal data failed\n", __func__);
-			goto power_down;
-		}
-		e_ctrl->is_supported |= msm_eeprom_match_crc(
-						&e_ctrl->cal_data);
-	}
-	rc = msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
-		&e_ctrl->i2c_client);
-	if (rc) {
-		pr_err("failed rc %d\n", rc);
-		goto power_down;
-	}
-	if (0 > of_property_read_u32(of_node, "qcom,sensor-position", &temp)) {
-		pr_err("%s:%d Fail position, Default sensor position\n", __func__, __LINE__);
-		temp = 0;
-	}
-	pr_err("%s qcom,sensor-position %d\n", __func__,temp);
-
-	v4l2_i2c_subdev_init(&e_ctrl->msm_sd.sd,
-		e_ctrl->i2c_client.client,
-		e_ctrl->eeprom_v4l2_subdev_ops);
-	v4l2_set_subdevdata(&e_ctrl->msm_sd.sd, e_ctrl);
-	e_ctrl->msm_sd.sd.internal_ops = &msm_eeprom_internal_ops;
-	e_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	snprintf(e_ctrl->msm_sd.sd.name,
-		ARRAY_SIZE(e_ctrl->msm_sd.sd.name), "msm_eeprom");
-	media_entity_init(&e_ctrl->msm_sd.sd.entity, 0, NULL, 0);
-	e_ctrl->msm_sd.sd.entity.flags = temp;
-	e_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	e_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_EEPROM;
-	msm_sd_register(&e_ctrl->msm_sd);
-	e_ctrl->is_supported = 1;
-	pr_err("%s success result=%d X\n", __func__, rc);
-	return rc;
-power_down:
-	msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
-		&e_ctrl->i2c_client);
-memdata_free:
-	if (e_ctrl->eboard_info)
-		kfree(e_ctrl->eboard_info);
-board_free:
-	if (e_ctrl)
-		kfree(e_ctrl);
-probe_failure:
-	pr_err("%s failed! rc = %d\n", __func__, rc);
-	return rc;
-}
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1496,12 +1374,187 @@ static int msm_eeprom_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int msm_eeprom_i2c_probe(struct i2c_client *client,
+			 const struct i2c_device_id *id)
+{
+	int rc = 0;
+	int j = 0;
+	uint32_t temp;
+	struct msm_eeprom_ctrl_t *e_ctrl = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
+	struct msm_eeprom_board_info *eb_info = NULL;
+	struct device_node *of_node = client->dev.of_node;
+
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		pr_err("%s i2c_check_functionality failed\n", __func__);
+		goto probe_failure;
+	}
+
+	e_ctrl = kzalloc(sizeof(*e_ctrl), GFP_KERNEL);
+	if (!e_ctrl) {
+		pr_err("%s:%d kzalloc failed\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	e_ctrl->eeprom_v4l2_subdev_ops = &msm_eeprom_subdev_ops;
+	e_ctrl->eeprom_mutex = &msm_eeprom_mutex;
+	e_ctrl->eboard_info = kzalloc(sizeof(
+		struct msm_eeprom_board_info), GFP_KERNEL);
+	if (!e_ctrl->eboard_info) {
+		pr_err("%s failed line %d\n", __func__, __LINE__);
+		rc = -ENOMEM;
+		goto ectrl_free;
+	}
+	e_ctrl->is_supported = 0;
+	if (!client->dev.of_node) {
+		pr_err("%s dev.of_node NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node, "cell-index",
+		&e_ctrl->subdev_id);
+	CDBG("cell-index %d, rc %d\n", e_ctrl->subdev_id, rc);
+	if (rc < 0) {
+		pr_err("failed rc %d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node, "qcom,slave-addr",
+		&temp);
+	if (rc < 0) {
+		pr_err("%s failed rc %d\n", __func__, rc);
+		return rc;
+	}
+
+	eb_info = e_ctrl->eboard_info;
+	power_info = &e_ctrl->eboard_info->power_info;
+	e_ctrl->i2c_client.client = client;
+	eb_info->i2c_slaveaddr = temp;
+
+	/* Set device type as I2C */
+	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
+	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_qup_func_tbl;
+
+	rc = of_property_read_string(client->dev.of_node, "qcom,eeprom-name",
+		&eb_info->eeprom_name);
+	CDBG("%s qcom,eeprom-name %s, rc %d\n", __func__,
+		eb_info->eeprom_name, rc);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto i2c_board_free;
+	}
+
+	if (e_ctrl->eboard_info->i2c_slaveaddr != 0)
+		e_ctrl->i2c_client.client->addr =
+					e_ctrl->eboard_info->i2c_slaveaddr;
+	power_info->clk_info = cam_8960_clk_info;
+	power_info->clk_info_size = ARRAY_SIZE(cam_8960_clk_info);
+	power_info->dev = &client->dev;
+
+	rc = msm_eeprom_cmm_dts(e_ctrl->eboard_info, of_node);
+	if (rc < 0)
+		CDBG("%s MM data miss:%d\n", __func__, __LINE__);
+
+	rc = msm_eeprom_get_dt_data(e_ctrl);
+	if (rc)
+		goto i2c_board_free;
+
+	rc = msm_eeprom_parse_memory_map(of_node, "cal", &e_ctrl->cal_data);
+	if (rc < 0)
+		goto i2c_board_free;
+
+	rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
+		&e_ctrl->i2c_client);
+	if (rc) {
+		pr_err("failed rc %d\n", rc);
+		goto i2c_memdata_free;
+	}
+	rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+	if (rc < 0) {
+		pr_err("%s read_eeprom_memory failed\n", __func__);
+		goto i2c_power_down;
+	}
+	for (j = 0; j < e_ctrl->cal_data.num_data; j++)
+		pr_err("memory_data[%d] = 0x%X\n", j,
+			e_ctrl->cal_data.mapdata[j]);
+
+	e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
+
+	rc = msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
+		&e_ctrl->i2c_client);
+	if (rc) {
+		pr_err("failed rc %d\n", rc);
+		goto i2c_memdata_free;
+	}
+	/*IMPLEMENT READING PART*/
+	/* Initialize sub device */
+	v4l2_i2c_subdev_init(&e_ctrl->msm_sd.sd,
+		e_ctrl->i2c_client.client,
+		e_ctrl->eeprom_v4l2_subdev_ops);
+	v4l2_set_subdevdata(&e_ctrl->msm_sd.sd, e_ctrl);
+	e_ctrl->msm_sd.sd.internal_ops = &msm_eeprom_internal_ops;
+	e_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(e_ctrl->msm_sd.sd.name,
+		ARRAY_SIZE(e_ctrl->msm_sd.sd.name), "msm_eeprom");
+	media_entity_init(&e_ctrl->msm_sd.sd.entity, 0, NULL, 0);
+	e_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	e_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_EEPROM;
+	msm_sd_register(&e_ctrl->msm_sd);
+	e_ctrl->is_supported = (e_ctrl->is_supported << 1) | 1;
+	return rc;
+
+i2c_power_down:
+	msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
+		&e_ctrl->i2c_client);
+i2c_memdata_free:
+	kfree(e_ctrl->cal_data.mapdata);
+	kfree(e_ctrl->cal_data.map);
+i2c_board_free:
+	kfree(e_ctrl->eboard_info);
+ectrl_free:
+	kfree(e_ctrl);
+probe_failure:
+	pr_err("%s failed! rc = %d\n", __func__, rc);
+	return rc;
+}
+
+static int msm_eeprom_i2c_remove(struct i2c_client *client)
+{
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct msm_eeprom_ctrl_t  *e_ctrl;
+	if (!sd) {
+		pr_err("%s: Subdevice is NULL\n", __func__);
+		return 0;
+	}
+
+	e_ctrl = (struct msm_eeprom_ctrl_t *)v4l2_get_subdevdata(sd);
+	if (!e_ctrl) {
+		pr_err("%s: eeprom device is NULL\n", __func__);
+		return 0;
+	}
+
+	kfree(e_ctrl->cal_data.mapdata);
+	kfree(e_ctrl->cal_data.map);
+	if (e_ctrl->eboard_info) {
+		kfree(e_ctrl->eboard_info->power_info.gpio_conf);
+		kfree(e_ctrl->eboard_info);
+	}
+	kfree(e_ctrl);
+	return 0;
+}
+
 static const struct of_device_id msm_eeprom_dt_match[] = {
 	{ .compatible = "qcom,eeprom" },
 	{ }
 };
 
 MODULE_DEVICE_TABLE(of, msm_eeprom_dt_match);
+
+static const struct of_device_id msm_eeprom_i2c_dt_match[] = {
+	{ .compatible = "qcom,eeprom" },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, msm_eeprom_i2c_dt_match);
 
 static struct platform_driver msm_eeprom_platform_driver = {
 	.driver = {
@@ -1522,9 +1575,9 @@ static struct i2c_driver msm_eeprom_i2c_driver = {
 	.probe  = msm_eeprom_i2c_probe,
 	.remove = msm_eeprom_i2c_remove,
 	.driver = {
-		.name = "qcom,eeprom",
-		.owner	= THIS_MODULE,
-		.of_match_table = msm_eeprom_dt_match,
+		.name = "msm_eeprom",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_eeprom_i2c_dt_match,
 	},
 };
 
