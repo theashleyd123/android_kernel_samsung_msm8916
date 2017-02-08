@@ -453,7 +453,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	struct mdp_blit_req *req;
 	struct bpp_info bpp;
 	u32 src_read_bw = 0;
-	u32 dst_read_bw = 0;
+	u32 bg_read_bw = 0;
 	u32 dst_write_bw = 0;
 	u64 honest_ppp_ab = 0;
 	u32 fps;
@@ -475,8 +475,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		mdp3_get_bpp_info(req->src.format, &bpp);
 
 		if ((bpp.bpp_pln == 1 || req->src.format == MDP_YCRYCB_H2V1) &&
-			req->src_rect.w >= 1920 && req->src_rect.h >= 1080) {
-			/* Above 1080p only 30fps video plaback is supported */
+			req->src_rect.w >= 1280 && req->src_rect.h >= 720) {
+			/* Above 720p only 30fps video plaback is supported */
 			fps = 30;
 		} else {
 			/**
@@ -492,14 +492,22 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 						src_read_bw, bpp.bpp_pln);
 
 		mdp3_get_bpp_info(req->dst.format, &bpp);
-		dst_read_bw = req->dst_rect.w * req->dst_rect.h *
-						bpp.bpp_num / bpp.bpp_den;
-		dst_read_bw = mdp3_adjust_scale_factor(req,
-						dst_read_bw, bpp.bpp_pln);
 
+		if ((req->transp_mask != MDP_TRANSP_NOP) ||
+				(req->alpha < MDP_ALPHA_NOP) ||
+				(req->src.format == MDP_ARGB_8888) ||
+				(req->src.format == MDP_BGRA_8888) ||
+				(req->src.format == MDP_RGBA_8888)) {
+			bg_read_bw = req->dst_rect.w * req->dst_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
+			bg_read_bw = mdp3_adjust_scale_factor(req,
+						bg_read_bw, bpp.bpp_pln);
+		} else {
+			bg_read_bw = 0;
+		}
 		dst_write_bw = req->dst_rect.w * req->dst_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
-		honest_ppp_ab += (src_read_bw + dst_read_bw + dst_write_bw);
+		honest_ppp_ab += (src_read_bw + bg_read_bw + dst_write_bw);
 	}
 	honest_ppp_ab = honest_ppp_ab * fps;
 

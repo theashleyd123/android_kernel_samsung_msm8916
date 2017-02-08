@@ -64,6 +64,7 @@ static void __iomem *virt_bases[N_BASES];
 #define GPLL2_USER_CTL					0x25010
 #define GPLL2_CONFIG_CTL				0x25018
 #define GPLL2_STATUS					0x25024
+#define SNOC_QOSGEN					0x2601C
 #define MSS_CFG_AHB_CBCR				0x49000
 #define MSS_Q6_BIMC_AXI_CBCR				0x49004
 #define QPIC_AHB_CBCR					0x3F01C
@@ -2127,6 +2128,18 @@ static struct branch_clk gcc_venus0_vcodec0_clk = {
 	},
 };
 
+static struct gate_clk gcc_snoc_qosgen_clk = {
+	.en_mask = BIT(0),
+	.en_reg = SNOC_QOSGEN,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_snoc_qosgen_clk",
+		.ops = &clk_ops_gate,
+		.flags = CLKFLAG_SKIP_HANDOFF,
+		CLK_INIT(gcc_snoc_qosgen_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 
@@ -2349,6 +2362,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mdss_vsync_clk.c, 0x01fb },
 		{ &gcc_mdss_byte0_clk.c, 0x01fc },
 		{ &gcc_mdss_esc0_clk.c, 0x01fd },
+		{ &wcnss_m_clk.c, 0x0198},
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -2483,6 +2497,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_bimc_gpu_clk),
 	CLK_LIST(gcc_venus0_core0_vcodec0_clk),
 	CLK_LIST(gcc_usb_hs_phy_cfg_ahb_clk),
+	CLK_LIST(wcnss_m_clk),
 
 	/* Crypto clocks */
 	CLK_LIST(gcc_crypto_clk),
@@ -2493,6 +2508,9 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	/* Reset clocks */
 	CLK_LIST(gcc_usb2_hs_phy_only_clk),
 	CLK_LIST(gcc_qusb2_phy_clk),
+
+	/* QoS Reference clock */
+	CLK_LIST(gcc_snoc_qosgen_clk),
 };
 
 static int add_dev_opp(struct clk *c, struct device *dev,
@@ -2547,6 +2565,14 @@ static void register_opp_for_dev(struct platform_device *pdev)
 	WARN(add_dev_opp(opp_clk_src, &pdev->dev, dev_fmax),
 		"Failed to add OPP levels for dev\n");
 }
+
+static struct clk_lookup msm_clocks_mcd[] = {
+	/* Add crypto driver clocks */
+	CLK_LOOKUP_OF("core_clk",     gcc_crypto_clk,         "mcd"),
+	CLK_LOOKUP_OF("iface_clk",    gcc_crypto_ahb_clk,     "mcd"),
+	CLK_LOOKUP_OF("bus_clk",      gcc_crypto_axi_clk,     "mcd"),
+	CLK_LOOKUP_OF("core_clk_src", crypto_clk_src,         "mcd"),
+};
 
 static int msm_gcc_probe(struct platform_device *pdev)
 {
@@ -2633,6 +2659,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 				ARRAY_SIZE(msm_clocks_lookup));
 	if (ret)
 		return ret;
+
+	ret =  of_msm_clock_register(pdev->dev.of_node, msm_clocks_mcd,
+					ARRAY_SIZE(msm_clocks_mcd));
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to register crypto clocks for mcd\n");
+		return ret;
+	}
 
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);

@@ -27,7 +27,6 @@
 #define MDP3_MAX_BUF_QUEUE 8
 #define MDP3_LUT_HIST_EN 0x001
 #define MDP3_LUT_GC_EN 0x002
-#define MDP3_LUT_HIST_GC_EN (MDP3_LUT_HIST_EN | MDP3_LUT_GC_EN)
 
 struct mdp3_buffer_queue {
 	struct mdp3_img_data img_data[MDP3_MAX_BUF_QUEUE];
@@ -67,6 +66,8 @@ struct mdp3_session_data {
 	int vsync_enabled;
 	atomic_t vsync_countdown; /* Used to count down  */
 	bool in_splash_screen;
+	bool esd_recovery;
+	int dyn_pu_state; /* dynamic partial update status */
 
 	bool dma_active;
 	struct completion dma_completion;

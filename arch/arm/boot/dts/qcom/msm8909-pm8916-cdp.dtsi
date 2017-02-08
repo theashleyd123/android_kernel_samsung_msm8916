@@ -11,6 +11,10 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pinctrl.dtsi"
+#include "msm8909-pm8916-camera-sensor-cdp.dtsi"
+
 &soc {
 	i2c@78b9000 {
 		synaptics@20 {
@@ -39,19 +43,19 @@
 };
 
 &dsi_hx8394d_720_vid {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &dsi_sharp_qhd_vid {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &dsi_truly_wvga_cmd {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &dsi_hx8394d_qhd_vid {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &sdhc_1 {
@@ -136,12 +140,8 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
-		/* Backlight PWM */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,invert = <0>;		/* Disable invert */
-		qcom,src-sel = <4>;		/* DTEST1 */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,master-en = <1>;		/* Enable MPP */
+		/* HR LED */
+		status = "disabled";
 	};
 
 	mpp@a200 { /* MPP 3 */
@@ -150,8 +150,12 @@
 	};
 
 	mpp@a300 { /* MPP 4 */
-		/* HR LED */
-		status = "disabled";
+		/* Backlight PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,invert = <0>;		/* Disable invert */
+		qcom,src-sel = <4>;		/* DTEST1 */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,master-en = <1>;		/* Enable MPP */
 	};
 };
 
@@ -180,3 +184,21 @@
 		status = "disabled";
 	};
 };
+
+&i2c_1 { /* BLSP1 QUP1 */
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+		vdd-supply = <&pm8916_l17>;
+		vlogic-supply = <&pm8916_l6>;
+	};
+
+	avago@39 { /* Ambient light and proximity sensor */
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+	};
+
+	akm@c { /* Magnetic field sensor */
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+	};
+};
+

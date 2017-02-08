@@ -92,7 +92,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x88000000 0x0 0x05a00000>;
+			reg = <0x0 0x88000000 0x0 0x05500000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -100,7 +100,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8da00000 0x0 0x0600000>;
+			reg = <0x0 0x8d500000 0x0 0x0600000>;
 			label = "peripheral_mem";
 		};
 
@@ -120,7 +120,7 @@
 		cont_splash_mem: splash_region@83000000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
-			reg = <0x0 0x83000000 0x0 0x900000>;
+			reg = <0x0 0x83000000 0x0 0xc00000>;
 			label = "cont_splash_mem";
 		};
 	};
@@ -138,7 +138,6 @@
 #include "msm8909-gpu.dtsi"
 #include "msm8909-coresight.dtsi"
 #include "msm8909-bus.dtsi"
-#include "msm8909-pm.dtsi"
 #include "msm8909-mdss.dtsi"
 #include "msm8909-mdss-pll.dtsi"
 
@@ -721,7 +720,7 @@
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
-		qcom,pronto-vddmx-supply = <&pm8909_l3>;
+		qcom,pronto-vddmx-supply = <&pm8909_l3_corner_ao>;
 		qcom,pronto-vddcx-supply = <&pm8909_s1_corner>;
 		qcom,pronto-vddpx-supply = <&pm8909_l7>;
 		qcom,iris-vddxo-supply   = <&pm8909_l7>;
@@ -746,7 +745,6 @@
 
 		qcom,wlan-rx-buff-count = <512>;
 		qcom,has-autodetect-xo;
-		qcom,is-pronto-vt;
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
 		qcom,wcnss-adc_tm = <&pm8909_adc_tm>;
@@ -765,6 +763,7 @@
 		HSUSB_3p3-supply = <&pm8909_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 
+		qcom,hsusb-otg-phy-init-seq = <0x73 0x80 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
