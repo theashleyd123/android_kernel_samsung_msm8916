@@ -228,7 +228,8 @@
 
 &pm8909_bms {
 	status = "okay";
-	qcom,resume-soc = <99>;
+	qcom,resume-soc = <95>;
+	qcom,use-reported-soc;
 	qcom,force-bms-active-on-charger;
 	qcom,battery-data = <&qrd_batterydata>;
 };
@@ -239,6 +240,7 @@
 };
 
 &sdhc_2 {
+	qcom,no-1p8v;
 	qcom,vdd-always-on;
 	qcom,vdd-lpm-sup;
 
@@ -300,4 +302,10 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
+
+&pm8909_vadc {
+	chan@30 {
+		qcom,scale-function = <12>;
+	};
 };

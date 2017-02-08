@@ -64,6 +64,7 @@ obj-$(CONFIG_FLED_RT5033)       	+= rt5033_fled.o
 #SiliconMitus
 obj-$(CONFIG_FLED_SM5701)       	+= leds-sm5701.o
 obj-$(CONFIG_FLED_SM5703)		+= sm5703_fled.o
+obj-$(CONFIG_LEDS_AW2013)		+= leds-aw2013.o
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o

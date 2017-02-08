@@ -603,6 +603,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (level->notify_rpm) {
 		msm_rpm_exit_sleep();
 #ifdef CONFIG_CX_VOTE_TURBO
+
 		/* If RPM bumps up CX to turbo, unvote CX turbo vote
 		 * during exit of rpm assisted power collapse to
 		 * reduce the power impact

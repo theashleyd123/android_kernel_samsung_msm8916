@@ -606,17 +606,13 @@ int nfcc_wake(int level, struct file *filp)
 
 		} while ((wake_status & NCI_WAKE)
 				&& (time_taken < WAKE_TIMEOUT));
-		/* Restore original NFCC slave I2C address */
-
-		qca199x_dev->client->addr = curr_addr;
-		if (r != sizeof(wake_status))
-			return -EMSGSIZE;
-
 		if (time_taken >= WAKE_TIMEOUT) {
 			dev_err(&qca199x_dev->client->dev,
-			" %s : TIMED OUT to get WAKEUP bit\n", __func__);
+			"%s: timed out to get wakeup bit\n", __func__);
 			r = -EIO;
+			goto leave;
 		}
+		r = 0;
 		qca199x_dev->state = NFCC_STATE_NORMAL_WAKE;
 	}
 leave:
