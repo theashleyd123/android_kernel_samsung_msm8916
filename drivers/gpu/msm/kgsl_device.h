@@ -163,7 +163,7 @@ struct kgsl_functable {
 	   calling the hook */
 	struct kgsl_context *(*drawctxt_create) (struct kgsl_device_private *,
 						uint32_t *flags);
-	int (*drawctxt_detach) (struct kgsl_context *context);
+	void (*drawctxt_detach)(struct kgsl_context *context);
 	void (*drawctxt_destroy) (struct kgsl_context *context);
 	void (*drawctxt_dump) (struct kgsl_device *device,
 		struct kgsl_context *context);
@@ -702,14 +702,14 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		unsigned int timestamp, kgsl_event_func func, void *priv);
 void kgsl_process_event_group(struct kgsl_device *device,
 	struct kgsl_event_group *group);
-
+void kgsl_flush_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group);
 void kgsl_process_events(struct work_struct *work);
 
 void kgsl_context_destroy(struct kref *kref);
 
 int kgsl_context_init(struct kgsl_device_private *, struct kgsl_context
 		*context);
-int kgsl_context_detach(struct kgsl_context *context);
 
 void kgsl_context_dump(struct kgsl_context *context);
 

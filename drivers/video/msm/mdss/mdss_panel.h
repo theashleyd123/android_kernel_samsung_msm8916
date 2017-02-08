@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,8 +184,6 @@ struct mdss_intf_recovery {
  *				- 1: update to command mode
  * @MDSS_EVENT_REGISTER_RECOVERY_HANDLER: Event to recover the interface in
  *					case there was any errors detected.
- * @MDSS_EVENT_INTF_RESTORE: Event to restore the interface in case there
- *				was any errors detected during normal operation.
  * @ MDSS_EVENT_DSI_PANEL_STATUS:Event to check the panel status
  *				<= 0: panel check fail
  *				>  0: panel check success
@@ -211,7 +209,6 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_STREAM_SIZE,
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
-	MDSS_EVENT_INTF_RESTORE,
 	MDSS_EVENT_DSI_PANEL_STATUS,
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	MDSS_SAMSUNG_EVENT_FRAME_UPDATE,
@@ -229,6 +226,10 @@ struct lcd_panel_info {
 	u32 border_clr;
 	u32 underflow_clr;
 	u32 hsync_skew;
+	u32 border_top;
+	u32 border_bottom;
+	u32 border_left;
+	u32 border_right;
 	/* Pad width */
 	u32 xres_pad;
 	/* Pad height */
@@ -302,6 +303,7 @@ struct mipi_panel_info {
 
 	char lp11_init;
 	u32  init_delay;
+	u32  post_init_delay;
 	u32  power_off_delay;
 	u32  additional_delay;
 };
@@ -568,7 +570,9 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 {
 	return pinfo->yres + pinfo->lcdc.v_back_porch +
 			pinfo->lcdc.v_front_porch +
-			pinfo->lcdc.v_pulse_width;
+			pinfo->lcdc.v_pulse_width+
+			pinfo->lcdc.border_top +
+			pinfo->lcdc.border_bottom;
 }
 
 /*
@@ -584,10 +588,11 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo, bool
 		consider_fbc)
 {
-	int adj_xres = pinfo->xres;
+	int adj_xres = pinfo->xres + pinfo->lcdc.border_left +
+				pinfo->lcdc.border_right;
 
 	if (consider_fbc && pinfo->fbc.enabled)
-		adj_xres = mult_frac(pinfo->xres,
+		adj_xres = mult_frac(adj_xres,
 				pinfo->fbc.target_bpp, pinfo->bpp);
 
 	return adj_xres + pinfo->lcdc.h_back_porch +

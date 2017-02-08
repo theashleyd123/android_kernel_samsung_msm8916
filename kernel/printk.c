@@ -2456,10 +2456,6 @@ static int __init console_setup(char *str)
 	char *s, *options, *brl_options = NULL;
 	int idx;
 
-#ifdef CONFIG_PANIC_ON_RT_THROTTLING
-	if (!memcmp(str, "null", 4))
-		console_null_state = 1;
-#endif
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
 	if (!memcmp(str, "brl,", 4)) {
 		brl_options = "";

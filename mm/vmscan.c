@@ -105,15 +105,15 @@ struct scan_control {
 	 */
 	nodemask_t	*nodemask;
 
-#ifdef CONFIG_RUNTIME_COMPCACHE
-	struct rtcc_control *rc;
-#endif /* CONFIG_RUNTIME_COMPCACHE */
 	/*
 	 * Reclaim pages from a vma. If the page is shared by other tasks
 	 * it is zapped from a vma without reclaim so it ends up remaining
 	 * on memory until last task zap it.
 	 */
 	struct vm_area_struct *target_vma;
+#ifdef CONFIG_RUNTIME_COMPCACHE
+	struct rtcc_control *rc;
+#endif /* CONFIG_RUNTIME_COMPCACHE */
 };
 
 #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
@@ -1141,7 +1141,7 @@ cull_mlocked:
 		if (PageSwapCache(page))
 			try_to_free_swap(page);
 		unlock_page(page);
-		putback_lru_page(page);
+		list_add(&page->lru, &ret_pages);
 		continue;
 
 activate_locked:

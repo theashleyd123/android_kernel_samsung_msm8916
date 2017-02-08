@@ -362,7 +362,7 @@ static void mdss_fb_parse_dt_split(struct msm_fb_data_type *mfd)
 static ssize_t mdss_fb_store_split(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
-	u32 data[2] = {0};
+	int data[2] = {0};
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 
@@ -809,6 +809,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd = NULL;
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi;
+	const char *data;
 	int rc;
 
 	if (fbi_list_index >= MAX_FBI_LIST)
@@ -843,6 +844,20 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->bl_min_lvl = 30;
 	mfd->ad_bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
+
+	if (mfd->panel.type == MIPI_VIDEO_PANEL ||
+				mfd->panel.type == MIPI_CMD_PANEL) {
+		rc = of_property_read_string(pdev->dev.of_node,
+				"qcom,mdss-fb-format", &data);
+		if (!rc) {
+			if (!strcmp(data, "rgb888"))
+				mfd->fb_imgType = MDP_RGB_888;
+			else if (!strcmp(data, "rgb565"))
+				mfd->fb_imgType = MDP_RGB_565;
+			else
+				mfd->fb_imgType = MDP_RGBA_8888;
+		}
+	}
 
 	mfd->pdev = pdev;
 	mfd->split_mode = MDP_SPLIT_MODE_NONE;
@@ -1242,6 +1257,8 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 			if (mfd->mdp.ad_calc_bl)
 				(*mfd->mdp.ad_calc_bl)(mfd, temp, &temp,
 								&bl_notify);
+			if (!IS_CALIB_MODE_BL(mfd))
+				mdss_fb_scale_bl(mfd, &temp);
 			pdata->set_backlight(pdata, temp);
 			mfd->bl_level_old = mfd->unset_bl_level;
 			mfd->bl_updated = 1;
@@ -1572,6 +1589,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		}
 	} else {
 		pr_err("No IOMMU Domain\n");
+		rc = -EINVAL;
 		goto fb_mmap_failed;
 	}
 
@@ -2047,6 +2065,14 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->xres = 768;
 	var->yres = 1024;
 #endif
+	/*
+	 * Store the cont splash state in the var reserved[3] field.
+	 * The continuous splash is considered to be active if either
+	 * splash_enabled is set or if splash pipe has been allocated.
+	 */
+	var->reserved[3] = panel_info->cont_splash_enabled |
+				mfd->splash_info.splash_pipe_allocated;
+
 	/*
 	 * Populate smem length here for uspace to get the
 	 * Framebuffer size when FBIO_FSCREENINFO ioctl is
@@ -3609,6 +3635,17 @@ int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num)
 	return 0;
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);
+
+bool msm_fb_get_cont_splash(void)
+{
+	struct msm_fb_data_type *mfd = NULL;
+	/*Check primary panel cont splash state*/
+	mfd = (struct msm_fb_data_type *)fbi_list[0]->par;
+	if (mfd)
+		return mfd->panel_info->cont_splash_enabled;
+	return false;
+}
+EXPORT_SYMBOL(msm_fb_get_cont_splash);
 
 int __init mdss_fb_init(void)
 {

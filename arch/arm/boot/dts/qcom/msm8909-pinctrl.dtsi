@@ -108,8 +108,8 @@
 
 		cam_sensor_front {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 28>, <&gp 33>;
-			qcom,num-grp-pins = <2>;
+			qcom,pins = <&gp 28>, <&gp 33>, <&gp 95>, <&gp 99>, <&gp 17>;
+			qcom,num-grp-pins = <5>;
 			qcom,pin-func = <0>;
 			label = "cam_sensor_front";
 			/* active state */
@@ -121,11 +121,11 @@
 
 		cam_sensor_front_sleep {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 28>, <&gp 33>;
-			qcom,num-grp-pins = <2>;
+			qcom,pins = <&gp 28>, <&gp 33>, <&gp 95>, <&gp 99>, <&gp 17>;
+			qcom,num-grp-pins = <5>;
 			qcom,pin-func = <0>;
 			label = "cam-sensor-front-sleep";
-			/*suspended state */\
+			/* suspended state */
 			cam_sensor_front_sleep: sleep {
 				drive-strength = <2>; /* 2 MA */
 				bias-pull-down = <0>; /* PULL DOWN */
@@ -197,9 +197,13 @@
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
 			label = "vdd_spkdrv";
-			vdd_spkdrv_default: vdd_spkdrv_default {
+			vdd_spkdrv_act: vdd_spkdrv_on {
 				drive-strength = <8>;
 				bias-pull-up;
+			};
+			vdd_spkdrv_sus: vdd_spkdrv_off {
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -846,6 +850,17 @@
 			};
 		};
 
+		cti_trigout_a0 {
+			qcom,pins = <&gp 23>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cti-trigout-a0";
+			trigout_a0: trigout_a0 {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc: sdc {
 			/* 0-2 for sdc1 4-6 for sdc2 */
@@ -1050,7 +1065,7 @@
 
                         i2c_5_sleep: i2c_5_sleep {
                                 drive-strength = <2>; /* 2 MA */
-                                bias-disable = <0>; /* No PULL */
+                                bias-pull-down; /* PULL DOWN */
                         };
                 };
 
@@ -1068,7 +1083,7 @@
 
 			i2c_3_sleep: i2c_3_sleep {
 				drive-strength = <2>; /* 2 MA */
-				bias-disable = <0>; /* No PULL */
+				bias-pull-down; /* PULL DOWN */
 			};
 		};
 

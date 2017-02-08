@@ -1358,7 +1358,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_UNBLANK:
 		if (ctrl_pdata->refresh_clk_rate)
 			rc = mdss_dsi_clk_refresh(pdata);
-
+		mdss_dsi_get_hw_revision(ctrl_pdata);
 		if (ctrl_pdata->on_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		break;
@@ -1420,9 +1420,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_REGISTER_RECOVERY_HANDLER:
 		rc = mdss_dsi_register_recovery_handler(ctrl_pdata,
 			(struct mdss_intf_recovery *)arg);
-		break;
-	case MDSS_EVENT_INTF_RESTORE:
-		mdss_dsi_ctrl_phy_restore(ctrl_pdata);
 		break;
 	case MDSS_EVENT_DSI_PANEL_STATUS:
 		if (ctrl_pdata->check_status)
@@ -2085,7 +2082,8 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			pr_err("%s: Panel power on failed\n", __func__);
 			return rc;
 		}
-
+		if (ctrl_pdata->bklt_ctrl == BL_PWM)
+			ctrl_pdata->pwm_enabled = 1;
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->ctrl_state |=

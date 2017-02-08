@@ -554,6 +554,7 @@ struct signal_struct {
 	atomic_t		sigcnt;
 	atomic_t		live;
 	int			nr_threads;
+	struct list_head	thread_head;
 
 	wait_queue_head_t	wait_chldexit;	/* for wait4() */
 
@@ -1274,6 +1275,7 @@ struct task_struct {
 	/* PID/PID hash table linkage. */
 	struct pid_link pids[PIDTYPE_MAX];
 	struct list_head thread_group;
+	struct list_head thread_node;
 
 	struct completion *vfork_done;		/* for vfork() */
 	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
@@ -1915,16 +1917,7 @@ sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 #endif
 
 #ifdef CONFIG_SCHED_HMP
-
 extern int sched_set_boost(int enable);
-extern int sched_set_cpu_mostly_idle_load(int cpu, int mostly_idle_pct);
-extern int sched_get_cpu_mostly_idle_load(int cpu);
-extern int sched_set_cpu_mostly_idle_nr_run(int cpu, int nr_run);
-extern int sched_get_cpu_mostly_idle_nr_run(int cpu);
-extern int
-sched_set_cpu_mostly_idle_freq(int cpu, unsigned int mostly_idle_freq);
-extern unsigned int sched_get_cpu_mostly_idle_freq(int cpu);
-
 #else
 static inline int sched_set_boost(int enable)
 {
@@ -2342,6 +2335,16 @@ extern bool current_is_single_threaded(void);
 
 #define while_each_thread(g, t) \
 	while ((t = next_thread(t)) != g)
+
+#define __for_each_thread(signal, t)	\
+	list_for_each_entry_rcu(t, &(signal)->thread_head, thread_node)
+
+#define for_each_thread(p, t)		\
+	__for_each_thread((p)->signal, t)
+
+/* Careful: this is a double loop, 'break' won't work as expected. */
+#define for_each_process_thread(p, t)	\
+	for_each_process(p) for_each_thread(p, t)
 
 static inline int get_nr_threads(struct task_struct *tsk)
 {

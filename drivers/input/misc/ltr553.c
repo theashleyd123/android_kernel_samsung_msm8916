@@ -172,12 +172,12 @@ struct ltr553_data {
 };
 
 struct als_coeff {
-	u32 ch0_coeff_i;
-	u32 ch1_coeff_i;
-	u32 ch0_coeff_f;
-	u32 ch1_coeff_f;
-	u32 win_fac;
-	u32 sign;
+	int ch0_coeff_i;
+	int ch1_coeff_i;
+	int ch0_coeff_f;
+	int ch1_coeff_f;
+	int win_fac;
+	int sign;
 } __attribute__((__packed__));
 
 static struct regulator_map power_config[] = {
@@ -195,23 +195,23 @@ static struct als_coeff eqtn_map[] = {
 		.ch1_coeff_i = 1,
 		.ch0_coeff_f = 7743,
 		.ch1_coeff_f = 1059,
-		.win_fac = 100,
+		.win_fac = 44,
 		.sign = 1,
 	},
 	{
 		.ch0_coeff_i = 4,
 		.ch1_coeff_i = 1,
 		.ch0_coeff_f = 2785,
-		.ch1_coeff_f = 696,
-		.win_fac = 80,
+		.ch1_coeff_f = 9548,
+		.win_fac = 50,
 		.sign = -1,
 	},
 	{
 		.ch0_coeff_i = 0,
 		.ch1_coeff_i = 0,
 		.ch0_coeff_f = 5926,
-		.ch1_coeff_f = 1300,
-		.win_fac = 44,
+		.ch1_coeff_f = 1185,
+		.win_fac = 40,
 		.sign = 1,
 	},
 	{
@@ -682,8 +682,7 @@ static int ltr553_init_device(struct ltr553_data *ltr)
 }
 
 /* Calculate the lux value based on ADC data */
-static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
-		unsigned int als_int_fac)
+static int ltr553_calc_lux(int ch0data, int ch1data, int gain, int als_int_fac)
 {
 	int ratio;
 	int lux_i;
@@ -698,9 +697,9 @@ static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
 	ratio = ch1data * 100 / (ch0data + ch1data);
 	if (ratio < 45)
 		eqtn = &eqtn_map[0];
-	else if ((ratio >= 45) && (ratio < 74))
+	else if ((ratio >= 45) && (ratio < 68))
 		eqtn = &eqtn_map[1];
-	else if ((ratio >= 74) && (ratio < 99))
+	else if ((ratio >= 68) && (ratio < 99))
 		eqtn = &eqtn_map[2];
 	else
 		eqtn = &eqtn_map[3];
@@ -716,8 +715,7 @@ static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
 }
 
 /* Calculate adc value based on lux. Return value is positive */
-static int ltr553_calc_adc(int ratio, int lux, int gain,
-		unsigned int als_int_fac)
+static int ltr553_calc_adc(int ratio, int lux, int gain, int als_int_fac)
 {
 	int divisor_i;
 	int divisor_f;
@@ -755,8 +753,7 @@ static int ltr553_calc_adc(int ratio, int lux, int gain,
 
 /* update als gain and threshold */
 static int ltr553_als_update_setting(struct ltr553_data *ltr,
-		unsigned int ch0data, unsigned int ch1data,
-		unsigned int als_int_fac)
+		int ch0data, int ch1data, int als_int_fac)
 {
 	int gain_index;
 	unsigned int config;
@@ -872,21 +869,21 @@ static int ltr553_als_update_setting(struct ltr553_data *ltr,
 
 static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 {
-	unsigned int als_int_fac;
+	int als_int_fac;
 	ktime_t	timestamp;
 	int rc = 0;
 
 	unsigned int tmp;
 	u8 als_data[4];
 	int lux;
-	unsigned int ch0data;
-	unsigned int ch1data;
+	int ch0data;
+	int ch1data;
 
 	u8 ps_data[4];
 	int i;
 	int distance;
 
-	timestamp = ktime_get();
+	timestamp = ktime_get_boottime();
 
 	if (als_ps) { /* process als data */
 		/* Read data */
@@ -1044,12 +1041,14 @@ static void ltr553_report_work(struct work_struct *work)
 	int rc;
 	unsigned int status;
 	u8 buf[7];
+	int fake_interrupt = 0;
 
 	mutex_lock(&ltr->ops_lock);
 
 	/* avoid fake interrupt */
 	if (!ltr->power_enabled) {
 		dev_dbg(&ltr->i2c->dev, "fake interrupt triggered\n");
+		fake_interrupt = 1;
 		goto exit;
 	}
 
@@ -1087,9 +1086,11 @@ exit:
 	}
 
 	/* clear interrupt */
-	if (regmap_bulk_read(ltr->regmap, LTR553_REG_ALS_DATA_CH1_0,
-			buf, ARRAY_SIZE(buf)))
-		dev_err(&ltr->i2c->dev, "clear interrupt failed\n");
+	if (!fake_interrupt) {
+		if (regmap_bulk_read(ltr->regmap, LTR553_REG_ALS_DATA_CH1_0,
+					buf, ARRAY_SIZE(buf)))
+			dev_err(&ltr->i2c->dev, "clear interrupt failed\n");
+	}
 
 	mutex_unlock(&ltr->ops_lock);
 }
@@ -1146,6 +1147,8 @@ static int ltr553_enable_ps(struct ltr553_data *ltr, int enable)
 		}
 
 		ltr->ps_enabled = true;
+		if (!ltr->als_enabled)
+			enable_irq(ltr->irq);
 
 	} else {
 		/* disable ps_sensor */
@@ -1158,6 +1161,8 @@ static int ltr553_enable_ps(struct ltr553_data *ltr, int enable)
 		}
 
 		ltr->ps_enabled = false;
+		if (!ltr->als_enabled)
+			disable_irq(ltr->irq);
 	}
 exit:
 	return rc;
@@ -1215,6 +1220,8 @@ static int ltr553_enable_als(struct ltr553_data *ltr, int enable)
 		}
 
 		ltr->als_enabled = true;
+		if (!ltr->ps_enabled)
+			enable_irq(ltr->irq);
 	} else {
 		/* disable als sensor */
 		rc = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
@@ -1226,6 +1233,8 @@ static int ltr553_enable_als(struct ltr553_data *ltr, int enable)
 		}
 
 		ltr->als_enabled = false;
+		if (!ltr->ps_enabled)
+			disable_irq(ltr->irq);
 	}
 
 exit:
@@ -1963,6 +1972,7 @@ static int ltr553_probe(struct i2c_client *client,
 		/* device wakeup initialization */
 		device_init_wakeup(&client->dev, 1);
 
+		disable_irq(ltr->irq);
 		ltr->workqueue = alloc_workqueue("ltr553_workqueue",
 				WQ_NON_REENTRANT | WQ_FREEZABLE, 0);
 		INIT_WORK(&ltr->report_work, ltr553_report_work);
@@ -1992,7 +2002,7 @@ static int ltr553_probe(struct i2c_client *client,
 	ltr->als_cdev.sensors_enable = ltr553_cdev_enable_als;
 	ltr->als_cdev.sensors_poll_delay = ltr553_cdev_set_als_delay;
 	ltr->als_cdev.sensors_flush = ltr553_cdev_als_flush;
-	res = sensors_classdev_register(&client->dev, &ltr->als_cdev);
+	res = sensors_classdev_register(&ltr->input_light->dev, &ltr->als_cdev);
 	if (res) {
 		dev_err(&client->dev, "sensors class register failed.\n");
 		goto err_register_als_cdev;
@@ -2005,7 +2015,8 @@ static int ltr553_probe(struct i2c_client *client,
 	ltr->ps_cdev.sensors_calibrate = ltr553_cdev_ps_calibrate;
 	ltr->ps_cdev.sensors_write_cal_params = ltr553_cdev_ps_write_cal;
 	ltr->ps_cdev.params = ltr->calibrate_buf;
-	res = sensors_classdev_register(&client->dev, &ltr->ps_cdev);
+	res = sensors_classdev_register(&ltr->input_proximity->dev,
+			&ltr->ps_cdev);
 	if (res) {
 		dev_err(&client->dev, "sensors class register failed.\n");
 		goto err_register_ps_cdev;
@@ -2133,13 +2144,13 @@ static int ltr553_suspend(struct device *dev)
 		}
 	} else {
 		/* power off */
-		disable_irq(ltr->irq);
+		if (ltr->als_enabled)
+			disable_irq(ltr->irq);
 		if (ltr->power_enabled) {
 			res = sensor_power_config(dev, power_config,
 					ARRAY_SIZE(power_config), false);
 			if (res) {
 				dev_err(dev, "failed to suspend ltr553\n");
-				enable_irq(ltr->irq);
 				goto exit;
 			}
 		}
@@ -2206,8 +2217,6 @@ static int ltr553_resume(struct device *dev)
 				goto exit_power_off;
 			}
 		}
-
-		enable_irq(ltr->irq);
 	}
 
 	return res;

@@ -625,7 +625,7 @@ void mdp3_bus_bw_iommu_enable(int enable, int client)
 
 	if (enable) {
 		if (mdp3_res->allow_iommu_update)
-			mdp3_iommu_enable();
+			mdp3_iommu_enable(client);
 		if (ref_cnt == 1) {
 			ab = bus_handle->restore_ab[client];
 			ib = bus_handle->restore_ib[client];
@@ -634,7 +634,7 @@ void mdp3_bus_bw_iommu_enable(int enable, int client)
 	} else {
 		if (ref_cnt == 0)
 			mdp3_bus_scale_set_quota(client, 0, 0);
-		mdp3_iommu_disable();
+		mdp3_iommu_disable(client);
 	}
 
 	if (ref_cnt < 0) {
@@ -730,11 +730,9 @@ int mdp3_iommu_attach(int context)
 	if (context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
-	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (context_map->attached) {
 		pr_warn("mdp iommu already attached\n");
-		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -747,7 +745,6 @@ int mdp3_iommu_attach(int context)
 	}
 
 	context_map->attached = true;
-	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
@@ -760,11 +757,9 @@ int mdp3_iommu_dettach(int context)
 		context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
-	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (!context_map->attached) {
 		pr_warn("mdp iommu not attached\n");
-		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -772,7 +767,6 @@ int mdp3_iommu_dettach(int context)
 	iommu_detach_device(domain_map->domain, context_map->ctx);
 	context_map->attached = false;
 
-	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
@@ -909,9 +903,11 @@ static int mdp3_hw_init(void)
 		mdp3_res->dma[i].capability = MDP3_DMA_CAP_ALL;
 		mdp3_res->dma[i].in_use = 0;
 		mdp3_res->dma[i].available = 1;
+		mdp3_res->dma[i].cc_vect_sel = 0;
 		mdp3_res->dma[i].lut_sts = 0;
 		mdp3_res->dma[i].hist_cmap = NULL;
 		mdp3_res->dma[i].gc_cmap = NULL;
+		mutex_init(&mdp3_res->dma[i].pp_lock);
 	}
 	mdp3_res->dma[MDP3_DMA_S].capability = MDP3_DMA_CAP_DITHER;
 	mdp3_res->dma[MDP3_DMA_E].available = 0;
@@ -924,13 +920,15 @@ static int mdp3_hw_init(void)
 	}
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_AHB].available = 0;
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_LCDC].available = 0;
-	mdp3_res->smart_blit_en = true;
+	mdp3_res->smart_blit_en = SMART_BLIT_RGB_EN | SMART_BLIT_YUV_EN;
+	mdp3_res->solid_fill_vote_en = false;
 	return 0;
 }
 
 int mdp3_dynamic_clock_gating_ctrl(int enable)
 {
 	int rc = 0;
+	int cgc_cfg = 0;
 	/*Disable dynamic auto clock gating*/
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
 	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
@@ -939,12 +937,16 @@ int mdp3_dynamic_clock_gating_ctrl(int enable)
 		pr_err("fail to turn on MDP core clks\n");
 		return rc;
 	}
-
+	cgc_cfg = MDP3_REG_READ(MDP3_REG_CGC_EN);
 	if (enable) {
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x7FFFF);
+		cgc_cfg |= (BIT(10));
+		cgc_cfg |= (BIT(18));
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc_cfg);
 		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x0);
 	} else {
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x3FFFF);
+		cgc_cfg &= ~(BIT(10));
+		cgc_cfg &= ~(BIT(18));
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc_cfg);
 		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x3);
 	}
 
@@ -1031,10 +1033,16 @@ static int mdp3_res_init(void)
 static void mdp3_res_deinit(void)
 {
 	struct mdss_hw *mdp3_hw;
+	int i;
 
 	mdp3_hw = &mdp3_res->mdp3_hw;
 	mdp3_bus_scale_unregister();
-	mdp3_iommu_dettach(MDP3_IOMMU_CTX_MDP_0);
+
+	mutex_lock(&mdp3_res->iommu_lock);
+	for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++)
+		mdp3_iommu_dettach(i);
+	mutex_unlock(&mdp3_res->iommu_lock);
+
 	mdp3_iommu_deinit();
 
 	if (!IS_ERR_OR_NULL(mdp3_res->ion_client))
@@ -1773,11 +1781,16 @@ done:
 	return ret;
 }
 
-int mdp3_iommu_enable()
+int mdp3_iommu_enable(int client)
 {
-	int i, rc = 0;
+	int i, rc = 0, ref_cnt = 0;
 
-	if (mdp3_res->iommu_ref_cnt == 0) {
+	mutex_lock(&mdp3_res->iommu_lock);
+	for (i = 0; i < MDP3_CLIENT_MAX; i++)
+		ref_cnt += mdp3_res->iommu_ref_cnt[i];
+
+	if (ref_cnt == 0) {
+		mdp3_bus_scale_set_quota(MDP3_CLIENT_IOMMU, SZ_1M, SZ_1M);
 		for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++) {
 			rc = mdp3_iommu_attach(i);
 			if (rc) {
@@ -1789,24 +1802,36 @@ int mdp3_iommu_enable()
 	}
 
 	if (!rc)
-		mdp3_res->iommu_ref_cnt++;
+		mdp3_res->iommu_ref_cnt[client]++;
+	mutex_unlock(&mdp3_res->iommu_lock);
 
+	pr_debug("client :%d client_ref_cnt: %d total_ref_cnt: %d\n",
+		client, mdp3_res->iommu_ref_cnt[client], ref_cnt);
 	return rc;
 }
 
-int mdp3_iommu_disable()
+int mdp3_iommu_disable(int client)
 {
-	int i, rc = 0;
+	int i, rc = 0, ref_cnt = 0;
 
-	if (mdp3_res->iommu_ref_cnt) {
-		mdp3_res->iommu_ref_cnt--;
-		if (mdp3_res->iommu_ref_cnt == 0) {
+	mutex_lock(&mdp3_res->iommu_lock);
+	if (mdp3_res->iommu_ref_cnt[client]) {
+		mdp3_res->iommu_ref_cnt[client]--;
+
+		for (i = 0; i < MDP3_CLIENT_MAX; i++)
+			ref_cnt += mdp3_res->iommu_ref_cnt[i];
+
+		pr_debug("client :%d client_ref_cnt: %d total_ref_cnt: %d\n",
+			client, mdp3_res->iommu_ref_cnt[client], ref_cnt);
+		if (ref_cnt == 0) {
 			for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++)
 				rc = mdp3_iommu_dettach(i);
+			mdp3_bus_scale_set_quota(MDP3_CLIENT_IOMMU, 0, 0);
 		}
 	} else {
-		pr_err("iommu ref count unbalanced\n");
+		pr_err("iommu ref count unbalanced for client %d\n", client);
 	}
+	mutex_unlock(&mdp3_res->iommu_lock);
 
 	return rc;
 }
@@ -1815,10 +1840,13 @@ int mdp3_iommu_ctrl(int enable)
 {
 	int rc;
 
+	if (mdp3_res->allow_iommu_update == false)
+		return 0;
+
 	if (enable)
-		rc = mdp3_iommu_enable();
+		rc = mdp3_iommu_enable(MDP3_CLIENT_DSI);
 	else
-		rc = mdp3_iommu_disable();
+		rc = mdp3_iommu_disable(MDP3_CLIENT_DSI);
 	return rc;
 }
 
@@ -1968,6 +1996,14 @@ static int mdp3_alloc(struct msm_fb_data_type *mfd)
 		pr_err("fail to map to IOMMU %d\n", ret);
 		return ret;
 	}
+	ret = iommu_map(mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain,
+			phys, phys, size, IOMMU_READ);
+
+	if (ret) {
+		pr_err("fail to map phy addr to IOMMU %d\n", ret);
+		return ret;
+	}
+
 	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 		size, virt, phys, mfd->index);
 
@@ -1980,6 +2016,7 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 {
 	size_t size = 0;
 	int dom;
+	unsigned long phys;
 
 	if (!mfd->iova || !mfd->fbi->screen_base) {
 		pr_info("no fbmem allocated\n");
@@ -1987,12 +2024,14 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 	}
 
 	size = mfd->fbi->fix.smem_len;
+	phys = mfd->fbi->fix.smem_start;
 	dom = mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain_idx;
+	iommu_unmap(mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain,
+			phys, size);
 	msm_iommu_unmap_contig_buffer(mfd->iova, dom, 0, size);
 
 	mfd->fbi->screen_base = NULL;
 	mfd->fbi->fix.smem_start = 0;
-	mfd->fbi->fix.smem_len = 0;
 	mfd->iova = 0;
 }
 
@@ -2157,8 +2196,20 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	 * continue splash screen. This would have happened in
 	 * res_update in continuous_splash_on without this flag.
 	 */
-	mdp3_res->allow_iommu_update = true;
+	if (pdata->panel_info.cont_splash_enabled == false)
+		mdp3_res->allow_iommu_update = true;
+
 	return rc;
+}
+
+int mdp3_splash_done(struct mdss_panel_info *panel_info)
+{
+	if (panel_info->cont_splash_enabled) {
+		pr_err("continuous splash is on and splash done called\n");
+		return -EINVAL;
+	}
+	mdp3_res->allow_iommu_update = true;
+	return 0;
 }
 
 static int mdp3_debug_dump_stats_show(struct seq_file *s, void *v)
@@ -2222,9 +2273,17 @@ static void mdp3_debug_deinit(struct platform_device *pdev)
 
 static void mdp3_dma_underrun_intr_handler(int type, void *arg)
 {
+	struct mdp3_dma *dma = &mdp3_res->dma[MDP3_DMA_P];
+
 	mdp3_res->underrun_cnt++;
-	pr_err("display underrun detected count=%d\n",
+	pr_err_ratelimited("display underrun detected count=%d\n",
 			mdp3_res->underrun_cnt);
+	ATRACE_INT("mdp3_dma_underrun_intr_handler", mdp3_res->underrun_cnt);
+
+	if (dma->ccs_config.ccs_enable && !dma->ccs_config.ccs_dirty) {
+		dma->ccs_config.ccs_dirty = true;
+		schedule_work(&dma->underrun_work);
+	}
 }
 
 static ssize_t mdp3_show_capabilities(struct device *dev,
@@ -2256,9 +2315,12 @@ static ssize_t mdp3_store_smart_blit(struct device *dev,
 		pr_err("kstrtoint failed. rc=%d\n", rc);
 		return rc;
 	} else {
-		mdp3_res->smart_blit_en = data ? true : false;
-		pr_debug("mdp3 smart blit %s\n",
-			 mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+		mdp3_res->smart_blit_en = data;
+		pr_debug("mdp3 smart blit RGB %s YUV %s\n",
+			(mdp3_res->smart_blit_en & SMART_BLIT_RGB_EN) ?
+			"ENABLED" : "DISABLED",
+			(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) ?
+			"ENABLED" : "DISABLED");
 	}
 	return len;
 }
@@ -2267,8 +2329,12 @@ static ssize_t mdp3_show_smart_blit(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
-	pr_debug("mdp3 smart blit %s\n",
-		mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+
+	pr_debug("mdp3 smart blit RGB %s YUV %s\n",
+		(mdp3_res->smart_blit_en & SMART_BLIT_RGB_EN) ?
+		"ENABLED" : "DISABLED",
+		(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) ?
+		"ENABLED" : "DISABLED");
 	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdp3_res->smart_blit_en);
 	return ret;
 }

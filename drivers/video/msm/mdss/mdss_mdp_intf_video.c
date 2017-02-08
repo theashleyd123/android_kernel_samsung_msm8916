@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -195,9 +195,12 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	if (delay > POLL_TIME_USEC_FOR_LN_CNT)
 		delay = POLL_TIME_USEC_FOR_LN_CNT;
 
+	mutex_lock(&ctl->offlock);
 	while (1) {
-		if (!ctl || !ctx || !ctx->timegen_en) {
-			pr_warn("Target is in suspend state\n");
+		if (!ctl || ctl->mfd->shutdown_pending || !ctx ||
+				!ctx->timegen_en) {
+			pr_warn("Target is in suspend or shutdown pending\n");
+			mutex_unlock(&ctl->offlock);
 			return;
 		}
 
@@ -207,6 +210,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 			(active_lns_cnt + min_ln_cnt))) {
 			pr_debug("%s, Needed lines left line_cnt=%d\n",
 						__func__, line_cnt);
+			mutex_unlock(&ctl->offlock);
 			return;
 		} else {
 			pr_warn("line count is less. line_cnt = %d\n",
@@ -1272,15 +1276,21 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 				0,  mdss_mdp_video_pingpong_done, ctl);
 	dst_bpp = pinfo->fbc.enabled ? (pinfo->fbc.target_bpp) : (pinfo->bpp);
 
-	itp.width = mult_frac((pinfo->xres + pinfo->lcdc.xres_pad),
-				dst_bpp, pinfo->bpp);
-	itp.height = pinfo->yres + pinfo->lcdc.yres_pad;
+	itp.width = mult_frac((pinfo->xres + pinfo->lcdc.border_left +
+			pinfo->lcdc.border_right), dst_bpp, pinfo->bpp);
+	itp.height = pinfo->yres + pinfo->lcdc.border_top +
+					pinfo->lcdc.border_bottom;
 	itp.border_clr = pinfo->lcdc.border_clr;
 	itp.underflow_clr = pinfo->lcdc.underflow_clr;
 	itp.hsync_skew = pinfo->lcdc.hsync_skew;
 
-	itp.xres = mult_frac(pinfo->xres, dst_bpp, pinfo->bpp);
-	itp.yres = pinfo->yres;
+	/* tg active area is not work, hence yres should equal to height */
+	itp.xres = mult_frac((pinfo->xres + pinfo->lcdc.border_left +
+			pinfo->lcdc.border_right), dst_bpp, pinfo->bpp);
+
+	itp.yres = pinfo->yres + pinfo->lcdc.border_top +
+				pinfo->lcdc.border_bottom;
+
 	itp.h_back_porch = pinfo->lcdc.h_back_porch;
 	itp.h_front_porch = pinfo->lcdc.h_front_porch;
 	itp.v_back_porch = pinfo->lcdc.v_back_porch;

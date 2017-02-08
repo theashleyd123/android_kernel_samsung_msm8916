@@ -39,16 +39,18 @@ struct bu21150_ioctl_get_frame_data {
 	char __user *buf;
 	unsigned int size;
 	char __user *tv; /* struct timeval* */
+	unsigned int keep_block_flag; /* for suspend */
 };
 
 struct bu21150_ioctl_spi_data {
 	unsigned long addr;
 	char __user *buf;
 	unsigned int count;
+	unsigned int next_mode;
 };
 
 struct bu21150_ioctl_timeout_data {
-	unsigned int timeout_enb_flag;
+	unsigned int timeout_enb;
 	unsigned int report_interval_us;
 };
 

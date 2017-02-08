@@ -173,16 +173,16 @@ static struct notifier_block lmk_vmpr_nb = {
 
 static int test_task_flag(struct task_struct *p, int flag)
 {
-	struct task_struct *t = p;
+	struct task_struct *t;
 
-	do {
+	for_each_thread(p, t) {
 		task_lock(t);
 		if (test_tsk_thread_flag(t, flag)) {
 			task_unlock(t);
 			return 1;
 		}
 		task_unlock(t);
-	} while_each_thread(p, t);
+	}
 
 	return 0;
 }
@@ -225,7 +225,7 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 	for_each_zone_zonelist(zone, zoneref, zonelist, MAX_NR_ZONES) {
 		zone_idx = zonelist_zone_idx(zoneref);
 		if (zone_idx == ZONE_MOVABLE) {
-			if (!use_cma_pages)
+			if (!use_cma_pages && other_free)
 				*other_free -=
 				    zone_page_state(zone, NR_FREE_CMA_PAGES);
 			continue;
@@ -240,7 +240,8 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 							       NR_FILE_PAGES)
 					      - zone_page_state(zone, NR_SHMEM);
 		} else if (zone_idx < classzone_idx) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0)) {
+			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
+			    other_free) {
 				if (!use_cma_pages) {
 					*other_free -= min(
 					  zone->lowmem_reserve[classzone_idx] +
@@ -253,8 +254,9 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					  zone->lowmem_reserve[classzone_idx];
 				}
 			} else {
-				*other_free -=
-					   zone_page_state(zone, NR_FREE_PAGES);
+				if (other_free)
+					*other_free -=
+					  zone_page_state(zone, NR_FREE_PAGES);
 			}
 		}
 	}

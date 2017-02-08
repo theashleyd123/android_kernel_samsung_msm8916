@@ -173,7 +173,7 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret < 0)
 		pr_err("Unable to dump modem fw memory (rc = %d).\n", ret);
 
-	ret = pil_mss_deinit_image(&drv->q6->desc);
+	ret = __pil_mss_deinit_image(&drv->q6->desc, false);
 	if (ret < 0)
 		pr_err("Unable to free up resources (rc = %d).\n", ret);
 
@@ -186,7 +186,12 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 	struct modem_data *drv = subsys_to_drv(dev_id);
 	if (drv->ignore_errors)
 		return IRQ_HANDLED;
+
 	pr_err("Watchdog bite received from modem software!\n");
+	if (drv->subsys_desc.system_debug &&
+			!gpio_get_value(drv->subsys_desc.err_fatal_gpio))
+		panic("%s: System ramdump requested. Triggering device restart!\n",
+							__func__);
 	subsys_set_crash_status(drv->subsys, true);
 	restart_modem(drv);
 	return IRQ_HANDLED;

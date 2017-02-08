@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,6 +217,7 @@ static void msm8x16_wcd_set_boost_v(struct snd_soc_codec *codec);
 
 static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 		bool micbias1, bool micbias2);
+static void msm8x16_skip_imped_detect(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -285,6 +286,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.set_auto_zeroing = msm8x16_wcd_set_auto_zeroing,
 	.get_hwdep_fw_cal = msm8x16_wcd_get_hwdep_fw_cal,
 	.set_cap_mode = msm8x16_wcd_configure_cap,
+	.skip_imped_detect = msm8x16_skip_imped_detect,
 };
 #endif /* not CONFIG_SAMSUNG_JACK */
 
@@ -656,12 +658,12 @@ static void msm8x16_wcd_boost_on(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec,
 		MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL3,
 		0x0F, 0x0F);
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
-		0xA5, 0xA5);
-	snd_soc_update_bits(codec,
+		0xA5);
+	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
-		0x0F, 0x0F);
+		0x0F);
 	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
 		0x30);
@@ -705,12 +707,12 @@ static void msm8x16_wcd_boost_off(struct snd_soc_codec *codec)
 
 static void msm8x16_wcd_bypass_on(struct snd_soc_codec *codec)
 {
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
-		0xA5, 0xA5);
-	snd_soc_update_bits(codec,
+		0xA5);
+	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
-		0x07, 0x07);
+		0x07);
 	snd_soc_update_bits(codec,
 		MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
 		0x02, 0x02);
@@ -994,7 +996,8 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 	BUG_ON(static_cnt <= 0 || ond_cnt < 0);
 	if ((static_cnt + ond_cnt) > ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %zd\n",
-			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
+				__func__, (static_cnt + ond_cnt),
+					ARRAY_SIZE(pdata->regulator));
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1997,6 +2000,7 @@ static int msm8x16_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 	u16 tx_mux_ctl_reg;
 	u8 adc_dmic_sel = 0x0;
 	int ret = 0;
+	char *dec_num;
 
 	if (ucontrol->value.enumerated.item[0] > e->max - 1) {
 		dev_err(codec->dev, "%s: Invalid enum value: %d\n",
@@ -2022,7 +2026,14 @@ static int msm8x16_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 		goto out;
 	}
 
-	ret = kstrtouint(strpbrk(dec_name, "12"), 10, &decimator);
+	dec_num = strpbrk(dec_name, "12");
+	if (dec_num == NULL) {
+		dev_err(codec->dev, "%s: Invalid DEC selected\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = kstrtouint(dec_num, 10, &decimator);
 	if (ret < 0) {
 		dev_err(codec->dev, "%s: Invalid decimator = %s\n",
 			__func__, dec_name);
@@ -2380,8 +2391,14 @@ static int msm8x16_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	s32 *dmic_clk_cnt;
 	unsigned int dmic;
 	int ret;
+	char *dec_num = strpbrk(w->name, "12");
 
-	ret = kstrtouint(strpbrk(w->name, "12"), 10, &dmic);
+	if (dec_num == NULL) {
+		dev_err(codec->dev, "%s: Invalid DMIC\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = kstrtouint(dec_num, 10, &dmic);
 	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Invalid DMIC line on the codec\n", __func__);
@@ -2452,6 +2469,18 @@ static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 	} else {
 		pr_debug("%s: Auto Zeroing is not required from CONGA\n",
 				__func__);
+	}
+}
+
+static void msm8x16_skip_imped_detect(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd;
+
+	if (codec != NULL) {
+		msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+		msm8x16_wcd->mbhc.skip_imped_detection = true;
+	} else {
+		pr_debug("%s: Codec pointer is NULL\n", __func__);
 	}
 }
 
@@ -2706,7 +2735,7 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 	dev_dbg(codec->dev, "%s(): decimator %u hpf_cut_of_freq 0x%x\n",
 		 __func__, hpf_work->decimator, (unsigned int)hpf_cut_of_freq);
 	snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV, 0x51, 0x51);
+			MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV, 0xFF, 0x51);
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30, hpf_cut_of_freq << 4);
 }
@@ -2715,6 +2744,27 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 #define  CF_MIN_3DB_4HZ			0x0
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
+
+static int msm8x16_wcd_codec_set_iir_gain(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int value = 0, reg;
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		if (w->shift == 0)
+			reg = MSM8X16_WCD_A_CDC_IIR1_GAIN_B1_CTL;
+		else if (w->shift == 1)
+			reg = MSM8X16_WCD_A_CDC_IIR2_GAIN_B1_CTL;
+		value = snd_soc_read(codec, reg);
+		snd_soc_write(codec, reg, value);
+		break;
+	default:
+		pr_err("%s: event = %d not expected\n", __func__, event);
+	}
+	return 0;
+}
 
 static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
@@ -2730,6 +2780,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	u16 dec_reset_reg, tx_vol_ctl_reg, tx_mux_ctl_reg;
 	u8 dec_hpf_cut_of_freq;
 	int offset;
+	char *dec_num;
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
@@ -2748,7 +2799,14 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		goto out;
 	}
 
-	ret = kstrtouint(strpbrk(dec_name, "12"), 10, &decimator);
+	dec_num = strpbrk(dec_name, "12");
+	if (dec_num == NULL) {
+		dev_err(codec->dev, "%s: Invalid Decimator\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = kstrtouint(dec_num, 10, &decimator);
 	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Invalid decimator = %s\n", __func__, dec_name);
@@ -2798,7 +2856,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		}
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV,
-				0x51, 0x40);
+				0xFF, 0x42);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -4012,12 +4070,12 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
-	SND_SOC_DAPM_PGA("IIR1",
-		MSM8X16_WCD_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_E("IIR1", MSM8X16_WCD_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0,
+		msm8x16_wcd_codec_set_iir_gain, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX("IIR2 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp1_mux),
-	SND_SOC_DAPM_PGA("IIR2",
-		MSM8X16_WCD_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_E("IIR2", MSM8X16_WCD_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0,
+		msm8x16_wcd_codec_set_iir_gain, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_SUPPLY("RX_I2S_CLK",
 		MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL,	4, 0, NULL, 0),
@@ -4164,8 +4222,22 @@ static void msm8x16_wcd_codec_init_reg(struct snd_soc_codec *codec)
 
 static int msm8x16_wcd_bringup(struct snd_soc_codec *codec)
 {
+	snd_soc_write(codec,
+		MSM8X16_WCD_A_DIGITAL_SEC_ACCESS,
+		0xA5);
 	snd_soc_write(codec, MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL4, 0x01);
+	snd_soc_write(codec,
+		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
+		0xA5);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL4, 0x01);
+	snd_soc_write(codec,
+		MSM8X16_WCD_A_DIGITAL_SEC_ACCESS,
+		0xA5);
+	snd_soc_write(codec, MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL4, 0x00);
+	snd_soc_write(codec,
+		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
+		0xA5);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL4, 0x00);
 	return 0;
 }
 
@@ -4197,6 +4269,47 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 		MSM8X16_WCD_A_ANALOG_TX_1_EN, 0x3);
 	msm8x16_wcd_write(codec,
 		MSM8X16_WCD_A_ANALOG_TX_2_EN, 0x3);
+	if (msm8x16_wcd_priv->boost_option == BOOST_ON_FOREVER) {
+		if ((snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_SPKR_DRV_CTL)
+			& 0x80) == 0) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_CLK_MCLK_CTL,	0x01, 0x01);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_CLK_PDM_CTL, 0x03, 0x03);
+			snd_soc_write(codec,
+				MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL, 0x30);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL, 0x80, 0x80);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_TOP_CLK_CTL,
+				0x0C, 0x0C);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+				0x84, 0x84);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_ANA_CLK_CTL,
+				0x10, 0x10);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_SPKR_PWRSTG_CTL,
+				0x1F, 0x1F);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
+				0x90, 0x90);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+				0xFF, 0xFF);
+			usleep_range(20, 21);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_SPKR_PWRSTG_CTL,
+				0xFF, 0xFF);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_SPKR_DRV_CTL,
+				0xE9, 0xE9);
+		}
+	}
+	msm8x16_wcd_boost_off(codec);
+	/* 40ms to allow boost to discharge */
+	msleep(40);
 	/* Disable PA to avoid pop during codec bring up */
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
 			0x30, 0x00);
@@ -4211,8 +4324,7 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 	msm8x16_wcd_write(codec,
 		MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x93);
 
-	msm8x16_wcd_write(codec, MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL4, 0x1);
-	msm8x16_wcd_write(codec, MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL4, 0x1);
+	msm8x16_wcd_bringup(codec);
 	atomic_set(&pdata->mclk_enabled, false);
 	set_bit(BUS_DOWN, &msm8x16_wcd_priv->status_mask);
 	snd_soc_card_change_online_state(codec->card, 0);
@@ -4225,42 +4337,37 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
 		snd_soc_codec_get_drvdata(codec);
 
-	u32 reg;
 	dev_dbg(codec->dev, "%s: device up!\n", __func__);
 
 	mutex_lock(&codec->mutex);
 
 	clear_bit(BUS_DOWN, &msm8x16_wcd_priv->status_mask);
 
-	for (reg = 0; reg < ARRAY_SIZE(msm8x16_wcd_reset_reg_defaults); reg++)
-		if (msm8x16_wcd_reg_readable[reg])
-			msm8x16_wcd_write(codec,
-				reg, msm8x16_wcd_reset_reg_defaults[reg]);
-
-	if (codec->reg_def_copy) {
-		pr_debug("%s: Update ASOC cache", __func__);
-		kfree(codec->reg_cache);
-		codec->reg_cache = kmemdup(codec->reg_def_copy,
-						codec->reg_size, GFP_KERNEL);
-		if (!codec->reg_cache) {
-			pr_err("%s: Cache update failed!\n", __func__);
-			mutex_unlock(&codec->mutex);
-			return -ENOMEM;
-		}
-	}
-
 	snd_soc_card_change_online_state(codec->card, 1);
 	/* delay is required to make sure sound card state updated */
 	usleep_range(5000, 5100);
 
-	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
+
+	codec->cache_sync = true;
+	snd_soc_cache_sync(codec);
+	codec->cache_sync = false;
+
+	msm8x16_wcd_write(codec, MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_SET__POR);
+	msm8x16_wcd_write(codec, MSM8X16_WCD_A_DIGITAL_INT_EN_CLR,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_CLR__POR);
 
 	msm8x16_wcd_set_boost_v(codec);
 
 #ifndef CONFIG_SAMSUNG_JACK
 	msm8x16_wcd_set_micb_v(codec);
+	if (msm8x16_wcd_priv->boost_option == BOOST_ON_FOREVER)
+		msm8x16_wcd_boost_on(codec);
+	else if (msm8x16_wcd_priv->boost_option == BYPASS_ALWAYS)
+		msm8x16_wcd_bypass_on(codec);
+
 	msm8x16_wcd_configure_cap(codec, false, false);
 	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
 	wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
@@ -4877,6 +4984,11 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 		dev_dbg(&spmi->dev, "%s:Platform data from board file\n",
 			__func__);
 		pdata = spmi->dev.platform_data;
+	}
+	if (pdata == NULL) {
+		dev_err(&spmi->dev, "%s:Platform data failed to populate\n",
+			__func__);
+		goto rtn;
 	}
 
 	msm8x16 = kzalloc(sizeof(struct msm8x16_wcd), GFP_KERNEL);

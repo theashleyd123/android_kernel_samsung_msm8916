@@ -32,8 +32,8 @@ struct wcnss_wlan_config {
 	int	is_pronto_vt;
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
-	int	iris_id;
 	int	vbatt;
+	int	iris_id;
 };
 
 enum {
@@ -115,7 +115,7 @@ void wcnss_riva_log_debug_regs(void);
 void wcnss_pronto_log_debug_regs(void);
 int wcnss_is_hw_pronto_ver3(void);
 int wcnss_device_ready(void);
-int wcnss_cbc_complete(void);
+bool wcnss_cbc_complete(void);
 int wcnss_device_is_shutdown(void);
 void wcnss_riva_dump_pmic_regs(void);
 int wcnss_xo_auto_detect_enabled(void);

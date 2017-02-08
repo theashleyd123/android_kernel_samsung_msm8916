@@ -469,6 +469,13 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	bool high = false;
 
 	pr_debug("%s: enter\n", __func__);
+	if (mbhc->skip_imped_detection) {
+		pr_debug("%s: Skip imped detect RL %d ohm, RR %d ohm\n",
+				__func__, mbhc->zl, mbhc->zr);
+		mbhc->skip_imped_detection = false;
+		goto skip_imped_detect;
+	}
+
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 	reg0 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER);
@@ -644,6 +651,7 @@ exit:
 					 zl, zr, high);
 
 	pr_debug("%s: RL %d milliohm, RR %d milliohm\n", __func__, *zl, *zr);
+skip_imped_detect:
 	pr_debug("%s: Impedance detection completed\n", __func__);
 }
 
@@ -980,6 +988,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	u16 result1, result2;
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
+	int no_gnd_mic_swap_cnt = 0;
 	bool is_pa_on;
 	bool micbias2;
 	bool micbias1;
@@ -1025,10 +1034,16 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 					MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN) &
 					0x30;
 
+		/*
+		 * instead of hogging system by contineous polling, wait for
+		 * sometime and re-check stop request again.
+		 */
+		msleep(180);
 		if ((!(result2 & 0x01)) && (!is_pa_on)) {
 			/* Check for cross connection*/
 			if (wcd_check_cross_conn(mbhc)) {
 				pt_gnd_mic_swap_cnt++;
+				no_gnd_mic_swap_cnt = 0;
 				if (pt_gnd_mic_swap_cnt <
 						GND_MIC_SWAP_THRESHOLD) {
 					continue;
@@ -1042,28 +1057,36 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 						  __func__);
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 					goto report;
-				} else if (mbhc->mbhc_cfg->swap_gnd_mic) {
-					pr_debug("%s: US_EU gpio present, flip switch\n",
-						 __func__);
-					/*
-					 * if switch is toggled, check again,
-					 * otherwise report unsupported plug
-					 */
+				} else {
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-					if (mbhc->mbhc_cfg->swap_gnd_mic(codec))
-						continue;
 				}
 			} else {
-				pt_gnd_mic_swap_cnt++;
+				no_gnd_mic_swap_cnt++;
+				pt_gnd_mic_swap_cnt = 0;
 				plug_type = MBHC_PLUG_TYPE_HEADSET;
-				if (pt_gnd_mic_swap_cnt <
+				if (no_gnd_mic_swap_cnt <
 						GND_MIC_SWAP_THRESHOLD) {
 					continue;
 				} else {
-					pt_gnd_mic_swap_cnt = 0;
+					no_gnd_mic_swap_cnt = 0;
 				}
 			}
 		}
+
+		if ((pt_gnd_mic_swap_cnt == GND_MIC_SWAP_THRESHOLD) &&
+			(plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP)) {
+			/*
+			 * if switch is toggled, check again,
+			 * otherwise report unsupported plug
+			 */
+			if (mbhc->mbhc_cfg->swap_gnd_mic &&
+				mbhc->mbhc_cfg->swap_gnd_mic(codec)) {
+				pr_debug("%s: US_EU gpio present,flip switch\n"
+					, __func__);
+				continue;
+			}
+		}
+
 		if (result2 == 1) {
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
@@ -1088,14 +1111,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			}
 			wrk_complete = false;
 		}
-		/*
-		 * instead of hogging system by contineous polling, wait for
-		 * sometime and re-check stop request again.
-		 */
-		msleep(180);
 	}
 	if (!wrk_complete && mbhc->btn_press_intr) {
 		pr_debug("%s: Can be slow insertion of headphone\n", __func__);
+		wcd_cancel_btn_work(mbhc);
 		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 	}
 	/*
@@ -1663,6 +1682,7 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	/* send event to sw intr handler*/
 	mbhc->is_btn_press = true;
 	wake_up_interruptible(&mbhc->wait_btn_press);
+	wcd_cancel_btn_work(mbhc);
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low ", __func__);
 		goto done;
@@ -1974,7 +1994,12 @@ EXPORT_SYMBOL(wcd_mbhc_start);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {
 	pr_debug("%s: enter\n", __func__);
+	if (mbhc->current_plug != MBHC_PLUG_TYPE_NONE) {
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->skip_imped_detect)
+			mbhc->mbhc_cb->skip_imped_detect(mbhc->codec);
+	}
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
+	mbhc->hph_status = 0;
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_left_ocp);
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_right_ocp);
 
@@ -2035,6 +2060,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->btn_press_intr = false;
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
+	mbhc->skip_imped_detection = false;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
@@ -2063,6 +2089,30 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		if (ret) {
 			pr_err("%s: Failed to set code for btn-0\n",
 				__func__);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_VOICECOMMAND);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-1:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_VOLUMEUP);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-2:%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_3,
+				       KEY_VOLUMEDOWN);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-3:%d\n",
+				__func__, ret);
 			return ret;
 		}
 
