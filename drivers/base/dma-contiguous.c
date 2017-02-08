@@ -39,6 +39,7 @@
 #include <linux/mm_types.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-removed.h>
+#include <linux/delay.h>
 #include <trace/events/kmem.h>
 #include <linux/delay.h>
 
@@ -623,6 +624,11 @@ unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
 				start = 0;
 				pr_debug("%s: Memory range busy,"
 					"retry after sleep\n", __func__);
+				/*
+				* Page momentarily pinned by some other process
+				* and so cannot be migrated. Wait for 100ms and
+				* then retry to see if it has been freed.
+				*/
 				msleep(100);
 				retry_after_sleep = 1;
 				mutex_unlock(&cma->lock);

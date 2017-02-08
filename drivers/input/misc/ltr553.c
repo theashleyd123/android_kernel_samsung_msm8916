@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,19 +75,24 @@
 #define LTR553_ALS_GAIN_MASK		0x1c
 
 /* default measurement rate is 100 ms */
-#define LTR553_DEFAULT_MEASURE_RATE	0x01
+#define LTR553_ALS_DEFAULT_MEASURE_RATE	0x01
+#define LTR553_PS_MEASUREMENT_RATE_10MS	0x08
 
 #define LTR553_CALIBRATE_SAMPLES	15
 
+#define ALS_GAIN_SWITCH_THRESHOLD	60000
+
+#define LTR553_ALS_INVALID(value)	(value & 0x80)
+
 /* LTR553 ALS data is 16 bit */
 #define ALS_DATA_MASK			0xffff
-#define ALS_LOW_BYTE(data)	((data) & 0xff)
-#define ALS_HIGH_BYTE(data)	(((data) >> 8) & 0xff)
+#define ALS_LOW_BYTE(data)		((data) & 0xff)
+#define ALS_HIGH_BYTE(data)		(((data) >> 8) & 0xff)
 
 /* LTR553 PS data is 11 bit */
-#define PS_DATA_MASK		0x7ff
-#define PS_LOW_BYTE(data)	((data) & 0xff)
-#define PS_HIGH_BYTE(data)	(((data) >> 8) & 0x7)
+#define PS_DATA_MASK			0x7ff
+#define PS_LOW_BYTE(data)		((data) & 0xff)
+#define PS_HIGH_BYTE(data)		(((data) >> 8) & 0x7)
 
 /* Calculated by 10% transmittance */
 #define LTR553_MAX_LUX			(ALS_DATA_MASK * 10)
@@ -150,7 +155,6 @@ struct ltr553_data {
 	int			als_persist;
 	int			als_integration_time;
 	int			als_measure_rate;
-	int			als_sensitivity;
 	int			ps_led;
 	int			ps_pulses;
 	int			ps_measure_rate;
@@ -233,6 +237,8 @@ static int ps_mrr_table[] = { 50, 70, 100, 200, 500, 1000, 2000, 10,
 /* Tuned for devices with rubber */
 static int ps_distance_table[] =  { 790, 337, 195, 114, 78, 62, 50 };
 
+static int sensitivity_table[] = {150, 150, 100, 100, 0, 0, 100, 1};
+
 static struct sensors_classdev als_cdev = {
 	.name = "ltr553-light",
 	.vendor = "Lite-On Technology Corp",
@@ -243,8 +249,10 @@ static struct sensors_classdev als_cdev = {
 	.resolution = "1.0",
 	.sensor_power = "0.25",
 	.min_delay = 50000,
+	.max_delay = 2000,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
+	.flags = 2,
 	.enabled = 0,
 	.delay_msec = 50,
 	.sensors_enable = NULL,
@@ -261,9 +269,10 @@ static struct sensors_classdev ps_cdev = {
 	.resolution = "1.0",
 	.sensor_power = "0.25",
 	.min_delay = 10000,
+	.max_delay = 2000,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
-	.flags = 1,
+	.flags = 3,
 	.enabled = 0,
 	.delay_msec = 50,
 	.sensors_enable = NULL,
@@ -487,18 +496,16 @@ static int ltr553_parse_dt(struct device *dev, struct ltr553_data *ltr)
 	}
 	/* 4 & 5 are reserved */
 	if ((value > 0x7) || (value == 0x4) || (value == 0x5)) {
-		dev_err(dev, "liteon,als-integration-time out of range\n");
+		dev_err(dev, "liteon,als-gain invalid\n");
 		return -EINVAL;
 	}
 	ltr->als_gain = value;
 
 	/* als sensitivity */
-	rc = of_property_read_u32(dp, "liteon,als-sensitivity", &value);
-	if (rc) {
-		dev_err(dev, "read liteon,als-sensitivity failed. Drop to default\n");
-		value = LTR553_ALS_SENSITIVITY;
-	}
-	ltr->als_sensitivity = value;
+	rc = of_property_read_u32_array(dp, "liteon,als-sensitivity",
+			sensitivity_table, ARRAY_SIZE(sensitivity_table));
+	if (rc)
+		dev_info(dev, "read liteon,als-sensitivity failed. Drop to default\n");
 
 	/* als equation map */
 	rc = of_property_read_u32_array(dp, "liteon,als-equation-0",
@@ -596,6 +603,7 @@ static int ltr553_init_input(struct ltr553_data *ltr)
 static int ltr553_init_device(struct ltr553_data *ltr)
 {
 	int rc;
+	unsigned int tmp;
 
 	/* Enable als/ps interrupt */
 	rc = regmap_write(ltr->regmap, LTR553_REG_INTERRUPT,
@@ -655,6 +663,21 @@ static int ltr553_init_device(struct ltr553_data *ltr)
 		return rc;
 	}
 
+	/* set up als gain */
+	rc = regmap_read(ltr->regmap, LTR553_REG_ALS_CTL, &tmp);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d register failed\n",
+				LTR553_REG_ALS_CTL);
+		return rc;
+	}
+	rc = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+			(tmp & (~0x1c)) | (ltr->als_gain << 2));
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d register failed\n",
+				LTR553_REG_ALS_CTL);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -675,9 +698,9 @@ static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
 	ratio = ch1data * 100 / (ch0data + ch1data);
 	if (ratio < 45)
 		eqtn = &eqtn_map[0];
-	else if ((ratio >= 45) && (ratio < 68))
+	else if ((ratio >= 45) && (ratio < 74))
 		eqtn = &eqtn_map[1];
-	else if ((ratio >= 68) && (ratio < 99))
+	else if ((ratio >= 74) && (ratio < 99))
 		eqtn = &eqtn_map[2];
 	else
 		eqtn = &eqtn_map[3];
@@ -730,6 +753,123 @@ static int ltr553_calc_adc(int ratio, int lux, int gain,
 	return result <= 0 ? 1 : result;
 }
 
+/* update als gain and threshold */
+static int ltr553_als_update_setting(struct ltr553_data *ltr,
+		unsigned int ch0data, unsigned int ch1data,
+		unsigned int als_int_fac)
+{
+	int gain_index;
+	unsigned int config;
+	unsigned int ratio;
+	unsigned int adc_base;
+	int rc;
+	int adc;
+	int i;
+	u8 als_data[4];
+
+	for (i = ARRAY_SIZE(als_gain_table) - 1; i >= 0; i--) {
+		if ((i == 4) || (i == 5))
+			continue;
+
+		if ((ch0data + ch1data) * als_gain_table[i] /
+				als_gain_table[ltr->als_gain] <
+				ALS_GAIN_SWITCH_THRESHOLD)
+			break;
+	}
+
+	gain_index = i < 0 ? 0 : i;
+
+	/*
+	 * Disable als and enable it again to avoid incorrect value.
+	 * Updating als gain during als measurement cycle will cause
+	 * incorrect light sensor adc value. The logic here is to handle
+	 * this scenario.
+	 */
+
+	if (ltr->als_gain != gain_index) {
+		rc = regmap_read(ltr->regmap, LTR553_REG_ALS_CTL, &config);
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+					LTR553_REG_ALS_CTL, rc);
+			return rc;
+		}
+
+		/* disable als sensor */
+		rc = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+				config & (~0x1));
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+					LTR553_REG_ALS_CTL, rc);
+			return rc;
+		}
+
+		/* write new als gain */
+		rc = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+				(config & (~0x1c)) | (gain_index << 2));
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "write %d register failed\n",
+					LTR553_REG_ALS_CTL);
+			return rc;
+		}
+	}
+
+	if ((ch0data == 0) && (ch1data == 0)) {
+		adc = 1;
+	} else {
+		ratio = ch1data * 100 / (ch0data + ch1data);
+		dev_dbg(&ltr->i2c->dev, "ratio:%d\n", ratio);
+		adc = ltr553_calc_adc(ratio, sensitivity_table[gain_index],
+				als_gain_table[gain_index], als_int_fac);
+	}
+
+	dev_dbg(&ltr->i2c->dev, "adc:%d\n", adc);
+
+	/* catch'ya! */
+	adc_base = ch0data * als_gain_table[gain_index] /
+		als_gain_table[ltr->als_gain];
+
+	/* upper threshold */
+	if (adc_base + adc > ALS_DATA_MASK) {
+		als_data[0] = 0xff;
+		als_data[1] = 0xff;
+	} else {
+		als_data[0] = ALS_LOW_BYTE(adc_base + adc);
+		als_data[1] = ALS_HIGH_BYTE(adc_base + adc);
+	}
+
+	/* lower threshold */
+	if (adc_base < adc) {
+		als_data[2] = 0x0;
+		als_data[3] = 0x0;
+	} else {
+		als_data[2] = ALS_LOW_BYTE(adc_base - adc);
+		als_data[3] = ALS_HIGH_BYTE(adc_base - adc);
+	}
+
+	rc = regmap_bulk_write(ltr->regmap, LTR553_REG_ALS_THRES_UP_0,
+			als_data, 4);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+				LTR553_REG_ALS_THRES_UP_0, rc);
+		return rc;
+	}
+
+	if (ltr->als_gain != gain_index) {
+		/* enable als_sensor */
+		rc = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+				(config & (~0x1c)) | (gain_index << 2) | 0x1);
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+					LTR553_REG_ALS_CTL, rc);
+			return rc;
+		}
+
+		ltr->als_gain = gain_index;
+	}
+
+	return 0;
+}
+
 static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 {
 	unsigned int als_int_fac;
@@ -741,8 +881,6 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 	int lux;
 	unsigned int ch0data;
 	unsigned int ch1data;
-	int adc;
-	int ratio;
 
 	u8 ps_data[4];
 	int i;
@@ -778,7 +916,15 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 				lux, als_data[0], als_data[1],
 				als_data[2], als_data[3]);
 
-		if (lux != ltr->last_als) {
+		rc = regmap_read(ltr->regmap, LTR553_REG_ALS_PS_STATUS, &tmp);
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+					LTR553_REG_ALS_PS_STATUS, rc);
+			goto exit;
+		}
+
+
+		if ((lux != ltr->last_als) && (!LTR553_ALS_INVALID(tmp))) {
 			input_report_abs(ltr->input_light, ABS_MISC, lux);
 			input_event(ltr->input_light, EV_SYN, SYN_TIME_SEC,
 					ktime_to_timespec(timestamp).tv_sec);
@@ -790,44 +936,21 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 		}
 
 		ltr->last_als = lux;
-		/* Set up threshold */
-		tmp = als_data[2] | (als_data[3] << 8);
-		if ((ch0data == 0) && (ch1data == 0)) {
-			adc = 1;
-		} else {
-			ratio = ch1data * 100 / (ch0data + ch1data);
-			dev_dbg(&ltr->i2c->dev, "ratio:%d\n", ratio);
-			adc = ltr553_calc_adc(ratio, ltr->als_sensitivity,
-				als_gain_table[ltr->als_gain], als_int_fac);
-		}
 
-		dev_dbg(&ltr->i2c->dev, "adc:%d\n", adc);
+		dev_dbg(&ltr->i2c->dev, "previous als_gain:%d\n",
+				ltr->als_gain);
 
-		/* upper threshold */
-		if (tmp + adc > ALS_DATA_MASK) {
-			als_data[0] = 0xff;
-			als_data[1] = 0xff;
-		} else {
-			als_data[0] = ALS_LOW_BYTE(tmp + adc);
-			als_data[1] = ALS_HIGH_BYTE(tmp + adc);
-		}
-
-		/* lower threshold */
-		if (tmp < adc) {
-			als_data[2] = 0x0;
-			als_data[3] = 0x0;
-		} else {
-			als_data[2] = ALS_LOW_BYTE(tmp - adc);
-			als_data[3] = ALS_HIGH_BYTE(tmp - adc);
-		}
-
-		rc = regmap_bulk_write(ltr->regmap, LTR553_REG_ALS_THRES_UP_0,
-				als_data, 4);
+		rc = ltr553_als_update_setting(ltr, ch0data, ch1data,
+				als_int_fac);
 		if (rc) {
-			dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
-					LTR553_REG_ALS_THRES_UP_0, rc);
+			dev_err(&ltr->i2c->dev, "update setting failed\n");
 			goto exit;
 		}
+
+		dev_dbg(&ltr->i2c->dev, "new als_gain:%d\n",
+				ltr->als_gain);
+
+
 	} else { /* process ps value */
 		rc = regmap_bulk_read(ltr->regmap, LTR553_REG_PS_DATA_0,
 				ps_data, 2);
@@ -903,12 +1026,13 @@ exit:
 static irqreturn_t ltr553_irq_handler(int irq, void *data)
 {
 	struct ltr553_data *ltr = data;
+	bool rc;
 
+	rc = queue_work(ltr->workqueue, &ltr->report_work);
 	/* wake up event should hold a wake lock until reported */
-	if (atomic_inc_return(&ltr->wake_count) == 1)
+	if (rc && (atomic_inc_return(&ltr->wake_count) == 1))
 		pm_stay_awake(&ltr->i2c->dev);
 
-	queue_work(ltr->workqueue, &ltr->report_work);
 
 	return IRQ_HANDLED;
 }
@@ -923,6 +1047,12 @@ static void ltr553_report_work(struct work_struct *work)
 
 	mutex_lock(&ltr->ops_lock);
 
+	/* avoid fake interrupt */
+	if (!ltr->power_enabled) {
+		dev_dbg(&ltr->i2c->dev, "fake interrupt triggered\n");
+		goto exit;
+	}
+
 	/* read status */
 	rc = regmap_read(ltr->regmap, LTR553_REG_ALS_PS_STATUS, &status);
 	if (rc) {
@@ -933,12 +1063,6 @@ static void ltr553_report_work(struct work_struct *work)
 	}
 
 	dev_dbg(&ltr->i2c->dev, "interrupt issued status=0x%x.\n", status);
-
-	if (!(status & LTR553_PS_INT_MASK)) {
-		dev_dbg(&ltr->i2c->dev, "not a proximity event\n");
-		if (atomic_dec_and_test(&ltr->wake_count))
-			pm_relax(&ltr->i2c->dev);
-	}
 
 	/* als interrupt issueed */
 	if ((status & LTR553_ALS_INT_MASK) && (ltr->als_enabled)) {
@@ -953,24 +1077,19 @@ static void ltr553_report_work(struct work_struct *work)
 		if (rc)
 			goto exit;
 		dev_dbg(&ltr->i2c->dev, "process ps data done!\n");
+		pm_wakeup_event(&ltr->input_proximity->dev, 200);
 	}
 
 exit:
+	if (atomic_dec_and_test(&ltr->wake_count)) {
+		pm_relax(&ltr->i2c->dev);
+		dev_dbg(&ltr->i2c->dev, "wake lock released\n");
+	}
+
 	/* clear interrupt */
 	if (regmap_bulk_read(ltr->regmap, LTR553_REG_ALS_DATA_CH1_0,
 			buf, ARRAY_SIZE(buf)))
 		dev_err(&ltr->i2c->dev, "clear interrupt failed\n");
-
-	/* sensor event processing done */
-	if (status & LTR553_PS_INT_MASK) {
-		dev_dbg(&ltr->i2c->dev, "proximity data processing done!\n");
-		if (atomic_dec_and_test(&ltr->wake_count))
-			pm_relax(&ltr->i2c->dev);
-
-		/* Hold a 200ms wake lock to allow framework handle it */
-		if (ltr->ps_enabled)
-			pm_wakeup_event(&ltr->input_proximity->dev, 200);
-	}
 
 	mutex_unlock(&ltr->ops_lock);
 }
@@ -1035,7 +1154,7 @@ static int ltr553_enable_ps(struct ltr553_data *ltr, int enable)
 		if (rc) {
 			dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
 					LTR553_REG_PS_CTL, rc);
-			return rc;
+			goto exit;
 		}
 
 		ltr->ps_enabled = false;
@@ -1103,14 +1222,104 @@ static int ltr553_enable_als(struct ltr553_data *ltr, int enable)
 		if (rc) {
 			dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
 					LTR553_REG_ALS_CTL, rc);
-			return rc;
+			goto exit;
 		}
 
 		ltr->als_enabled = false;
 	}
 
 exit:
-	return 0;
+	return rc;
+}
+
+static int ltr553_als_sync_delay(struct ltr553_data *ltr,
+		unsigned int als_delay)
+{
+	int index = 0;
+	int i;
+	unsigned int val;
+	int rc = 0;
+	int min;
+
+	if (!ltr->power_enabled) {
+		dev_dbg(&ltr->i2c->dev, "power is not enabled\n");
+		return 0;
+	}
+
+	min = abs(als_delay - als_mrr_table[0]);
+	for (i = 0; i < ARRAY_SIZE(als_mrr_table); i++) {
+		if (als_mrr_table[i] >= 10 *
+				als_int_fac_table[ltr->als_integration_time]) {
+			if (als_delay == als_mrr_table[i]) {
+				index = i;
+				break;
+			}
+			if (min > abs(als_delay - als_mrr_table[i])) {
+				index = i;
+				min = abs(als_delay - als_mrr_table[i]);
+			}
+		}
+	}
+
+	dev_dbg(&ltr->i2c->dev, "als delay %d ms\n", als_mrr_table[index]);
+
+	rc = regmap_read(ltr->regmap, LTR553_REG_ALS_MEAS_RATE, &val);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed\n",
+				LTR553_REG_ALS_MEAS_RATE);
+		goto exit;
+	}
+	val &= ~0x7;
+
+	ltr->als_measure_rate = index;
+	rc = regmap_write(ltr->regmap, LTR553_REG_ALS_MEAS_RATE, val | index);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d failed\n",
+				LTR553_REG_ALS_MEAS_RATE);
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+
+static int ltr553_ps_sync_delay(struct ltr553_data *ltr, unsigned int ps_delay)
+{
+	int index = 0;
+	int i;
+	int rc = 0;
+	int min;
+
+	if (!ltr->power_enabled) {
+		dev_dbg(&ltr->i2c->dev, "power is not enabled\n");
+		return 0;
+	}
+
+	min = abs(ps_delay - ps_mrr_table[0]);
+	for (i = 0; i < ARRAY_SIZE(ps_mrr_table); i++) {
+		if (ps_delay == ps_mrr_table[i]) {
+			index = i;
+			break;
+		}
+		if (min > abs(ps_delay - ps_mrr_table[i])) {
+			min = abs(ps_delay - ps_mrr_table[i]);
+			index = i;
+		}
+	}
+
+	ltr->ps_measure_rate = index;
+	dev_dbg(&ltr->i2c->dev, "ps delay %d ms\n", ps_mrr_table[index]);
+
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE, index);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d failed\n",
+				LTR553_REG_PS_MEAS_RATE);
+		goto exit;
+	}
+
+exit:
+	return rc;
 }
 
 static void ltr553_als_enable_work(struct work_struct *work)
@@ -1119,7 +1328,7 @@ static void ltr553_als_enable_work(struct work_struct *work)
 			als_enable_work);
 
 	mutex_lock(&ltr->ops_lock);
-	if (!ltr->power_enabled) {
+	if (!ltr->power_enabled) { /* new HAL? */
 		if (sensor_power_config(&ltr->i2c->dev, power_config,
 					ARRAY_SIZE(power_config), true)) {
 			dev_err(&ltr->i2c->dev, "power up sensor failed.\n");
@@ -1132,6 +1341,8 @@ static void ltr553_als_enable_work(struct work_struct *work)
 			dev_err(&ltr->i2c->dev, "init device failed\n");
 			goto exit_power_off;
 		}
+
+		ltr553_als_sync_delay(ltr, ltr->als_delay);
 	}
 
 	if (ltr553_enable_als(ltr, 1)) {
@@ -1200,6 +1411,8 @@ static void ltr553_ps_enable_work(struct work_struct *work)
 			dev_err(&ltr->i2c->dev, "init device failed\n");
 			goto exit_power_off;
 		}
+
+		ltr553_ps_sync_delay(ltr, ltr->ps_delay);
 	}
 
 	if (ltr553_enable_ps(ltr, 1)) {
@@ -1294,49 +1507,13 @@ static int ltr553_cdev_set_als_delay(struct sensors_classdev *sensors_cdev,
 {
 	struct ltr553_data *ltr = container_of(sensors_cdev,
 			struct ltr553_data, als_cdev);
-	int min = abs(delay_msec - als_mrr_table[0]);
-	int index = 0;
-	int i;
-	unsigned int val;
 	int rc;
 
 	mutex_lock(&ltr->ops_lock);
 
 	ltr->als_delay = delay_msec;
-	for (i = 0; i < ARRAY_SIZE(als_mrr_table); i++) {
-		if (als_mrr_table[i] >=
-			als_int_fac_table[ltr->als_integration_time] * 10) {
-			if (delay_msec == als_mrr_table[i]) {
-				index = i;
-				break;
-			}
-			if (min > abs(delay_msec - als_mrr_table[i])) {
-				index = i;
-				min = abs(delay_msec - als_mrr_table[i]);
-			}
-		}
-	}
+	rc = ltr553_als_sync_delay(ltr, delay_msec);
 
-	dev_dbg(&ltr->i2c->dev, "als delay %d ms\n", als_mrr_table[index]);
-
-	rc = regmap_read(ltr->regmap, LTR553_REG_ALS_MEAS_RATE, &val);
-	if (rc) {
-		dev_err(&ltr->i2c->dev, "read %d failed\n",
-				LTR553_REG_ALS_MEAS_RATE);
-		goto exit;
-	}
-	val &= ~0x7;
-
-	ltr->als_measure_rate = index;
-	rc = regmap_write(ltr->regmap, LTR553_REG_ALS_MEAS_RATE,
-			val | index);
-	if (rc) {
-		dev_err(&ltr->i2c->dev, "write %d failed\n",
-				LTR553_REG_ALS_MEAS_RATE);
-		goto exit;
-	}
-
-exit:
 	mutex_unlock(&ltr->ops_lock);
 
 	return rc;
@@ -1347,36 +1524,13 @@ static int ltr553_cdev_set_ps_delay(struct sensors_classdev *sensors_cdev,
 {
 	struct ltr553_data *ltr = container_of(sensors_cdev,
 			struct ltr553_data, ps_cdev);
-	int min = abs(delay_msec - ps_mrr_table[0]);
-	int index = 0;
-	int i;
 	int rc;
 
 	mutex_lock(&ltr->ops_lock);
 
 	ltr->ps_delay = delay_msec;
-	for (i = 0; i < ARRAY_SIZE(ps_mrr_table); i++) {
-		if (delay_msec == ps_mrr_table[i]) {
-			index = i;
-			break;
-		}
-		if (min > abs(delay_msec - ps_mrr_table[i])) {
-			min = abs(delay_msec - ps_mrr_table[i]);
-			index = i;
-		}
-	}
+	rc = ltr553_ps_sync_delay(ltr, delay_msec);
 
-	ltr->ps_measure_rate = index;
-	dev_dbg(&ltr->i2c->dev, "ps delay %d ms\n", ps_mrr_table[index]);
-
-	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE, index);
-	if (rc) {
-		dev_err(&ltr->i2c->dev, "write %d failed\n",
-				LTR553_REG_PS_MEAS_RATE);
-		goto exit;
-	}
-
-exit:
 	mutex_unlock(&ltr->ops_lock);
 
 	return 0;
@@ -1413,7 +1567,6 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	int power;
 	unsigned int config;
 	unsigned int interrupt;
-	unsigned int tmp;
 	u16 min = PS_DATA_MASK;
 	u8 ps_data[2];
 	int count = LTR553_CALIBRATE_SAMPLES;
@@ -1438,6 +1591,14 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 					ARRAY_SIZE(power_config), true);
 		if (rc) {
 			dev_err(&ltr->i2c->dev, "power up sensor failed.\n");
+			goto exit;
+		}
+
+		msleep(LTR553_BOOT_TIME_MS);
+
+		rc = ltr553_init_device(ltr);
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "init ltr553 failed\n");
 			goto exit;
 		}
 	}
@@ -1481,8 +1642,9 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 		goto exit_enable_interrupt;
 	}
 
-	/* ps measurement rate */
-	rc = regmap_read(ltr->regmap, LTR553_REG_PS_MEAS_RATE, &tmp);
+	/* ps measurement rate set to fastest rate */
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE,
+			LTR553_PS_MEASUREMENT_RATE_10MS);
 	if (rc) {
 		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
 				LTR553_REG_PS_MEAS_RATE, rc);
@@ -1492,8 +1654,8 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	msleep(LTR553_WAKE_TIME_MS);
 
 	while (--count) {
-		/* wait for data ready */
-		msleep(ps_mrr_table[tmp & 0xf]);
+		/* the measurement rate is 10 ms */
+		usleep_range(11000, 12000);
 		rc = regmap_bulk_read(ltr->regmap, LTR553_REG_PS_DATA_0,
 				ps_data, 2);
 		if (rc) {
@@ -1741,7 +1903,7 @@ static int ltr553_probe(struct i2c_client *client,
 			ARRAY_SIZE(power_config), true);
 	if (res) {
 		dev_err(&client->dev, "power up sensor failed.\n");
-		goto out;
+		goto err_power_config;
 	}
 
 	res = sensor_pinctrl_init(&client->dev, &pin_config);
@@ -1758,7 +1920,7 @@ static int ltr553_probe(struct i2c_client *client,
 		goto err_check_device;
 	}
 
-	ltr->als_measure_rate = LTR553_DEFAULT_MEASURE_RATE;
+	ltr->als_measure_rate = LTR553_ALS_DEFAULT_MEASURE_RATE;
 
 	res = ltr553_init_device(ltr);
 	if (res) {
@@ -1867,8 +2029,12 @@ err_set_direction:
 	gpio_free(ltr->irq_gpio);
 err_request_gpio:
 err_init_device:
+	device_init_wakeup(&client->dev, 0);
 err_check_device:
 err_pinctrl_init:
+	sensor_power_config(&client->dev, power_config,
+			ARRAY_SIZE(power_config), false);
+err_power_config:
 	sensor_power_deinit(&client->dev, power_config,
 			ARRAY_SIZE(power_config));
 out:
@@ -1902,6 +2068,7 @@ static int ltr553_suspend(struct device *dev)
 	int res = 0;
 	struct ltr553_data *ltr = dev_get_drvdata(dev);
 	u8 ps_data[4];
+	unsigned int config;
 	int idx = ltr->ps_wakeup_threshold;
 
 	dev_dbg(dev, "suspending ltr553...");
@@ -1910,6 +2077,25 @@ static int ltr553_suspend(struct device *dev)
 
 	/* proximity is enabled */
 	if (ltr->ps_enabled) {
+		/* disable als sensor to avoid wake up by als interrupt */
+		if (ltr->als_enabled) {
+			res = regmap_read(ltr->regmap, LTR553_REG_ALS_CTL,
+					&config);
+			if (res) {
+				dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+						LTR553_REG_ALS_CTL, res);
+				return res;
+			}
+
+			res = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+					config & (~0x1));
+			if (res) {
+				dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+						LTR553_REG_ALS_CTL, res);
+				goto exit;
+			}
+		}
+
 		/* Don't power off sensor because proximity is a
 		 * wake up sensor.
 		 */
@@ -1968,12 +2154,31 @@ static int ltr553_resume(struct device *dev)
 {
 	int res = 0;
 	struct ltr553_data *ltr = dev_get_drvdata(dev);
+	unsigned int config;
 
 	dev_dbg(dev, "resuming ltr553...");
 	if (ltr->ps_enabled) {
 		if (device_may_wakeup(&ltr->i2c->dev)) {
 			dev_dbg(&ltr->i2c->dev, "disable irq wake\n");
 			disable_irq_wake(ltr->irq);
+		}
+
+		if (ltr->als_enabled) {
+			res = regmap_read(ltr->regmap, LTR553_REG_ALS_CTL,
+					&config);
+			if (res) {
+				dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+						LTR553_REG_ALS_CTL, res);
+				goto exit;
+			}
+
+			res = regmap_write(ltr->regmap, LTR553_REG_ALS_CTL,
+					config | 0x1);
+			if (res) {
+				dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+						LTR553_REG_ALS_CTL, res);
+				goto exit;
+			}
 		}
 	} else {
 		pinctrl_select_state(pin_config.pinctrl, pin_config.state[0]);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -399,6 +399,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_drv_cm_data shared_pdata;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
+	bool refresh_clk_rate; /* flag to recalculate clk_rate */
 	struct dss_module_power power_data[DSI_MAX_PM];
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
@@ -438,6 +439,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_buf rx_buf;
 	struct dsi_buf status_buf;
 	int status_mode;
+	int rx_len;
 
 	struct dsi_pinctrl_res pin_res;
 
@@ -520,7 +522,8 @@ bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl);
-
+u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		bool cmd_cfg_cont_splash);

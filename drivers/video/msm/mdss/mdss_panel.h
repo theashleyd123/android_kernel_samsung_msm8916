@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/stringify.h>
 #include <linux/types.h>
+#include <linux/debugfs.h>
 #include <linux/lcd.h>
 #include <dlog.h>
 /* panel id type */
@@ -185,6 +186,9 @@ struct mdss_intf_recovery {
  *					case there was any errors detected.
  * @MDSS_EVENT_INTF_RESTORE: Event to restore the interface in case there
  *				was any errors detected during normal operation.
+ * @ MDSS_EVENT_DSI_PANEL_STATUS:Event to check the panel status
+ *				<= 0: panel check fail
+ *				>  0: panel check success
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -208,6 +212,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 	MDSS_EVENT_INTF_RESTORE,
+	MDSS_EVENT_DSI_PANEL_STATUS,
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	MDSS_SAMSUNG_EVENT_FRAME_UPDATE,
 	MDSS_SAMSUNG_EVENT_FB_EVENT_CALLBACK,
@@ -434,6 +439,8 @@ struct mdss_panel_info {
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
+	/* debugfs structure for the panel */
+	struct mdss_panel_debugfs_info *debugfs_info;
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	int panel_state;
 #endif
@@ -484,6 +491,16 @@ struct mdss_panel_data {
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	void *panel_private;
 #endif
+};
+
+struct mdss_panel_debugfs_info {
+	struct dentry *root;
+	u32 xres;
+	u32 yres;
+	struct lcd_panel_info lcdc;
+	u32 override_flag;
+	char frame_rate;
+	struct mdss_panel_debugfs_info *next;
 };
 
 /**
@@ -663,4 +680,16 @@ int mdss_panel_get_boot_cfg(void);
  * returns true if mdss is ready, else returns false.
  */
 bool mdss_is_ready(void);
+#ifdef CONFIG_FB_MSM_MDSS
+int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info);
+void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info);
+void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info);
+#else
+static inline int mdss_panel_debugfs_init(
+			struct mdss_panel_info *panel_info) { return 0; };
+static inline void mdss_panel_debugfs_cleanup(
+			struct mdss_panel_info *panel_info) { };
+static inline void mdss_panel_debugfsinfo_to_panelinfo(
+			struct mdss_panel_info *panel_info) { };
+#endif
 #endif /* MDSS_PANEL_H */

@@ -44,15 +44,15 @@ ifeq ($(PLATFORM), LGE_ODIN_LPAE)
 	ccflags-y += -DMC_NETLINK_COMPAT_V37
 endif
 
+ifeq ($(PLATFORM), MSM8084_SURF_STD)
+        ccflags-y += -DMC_NETLINK_COMPAT_V37
+endif
+
 ifeq ($(PLATFORM), MSM8916_SURF_STD)
-	ccflags-y += -DMC_NETLINK_COMPAT_V37
+        ccflags-y += -DMC_NETLINK_COMPAT_V37
 endif
 
 ifeq ($(PLATFORM), MSM8909_SURF_STD)
-	ccflags-y += -DMC_NETLINK_COMPAT_V37
-endif
-
-ifeq ($(PLATFORM), MSM8084_SURF_STD)
 	ccflags-y += -DMC_NETLINK_COMPAT_V37
 endif
 

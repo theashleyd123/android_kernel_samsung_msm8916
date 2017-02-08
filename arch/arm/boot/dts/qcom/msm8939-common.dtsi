@@ -677,7 +677,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 787200 1600000>; /* 49.2MHz & 100MHz */
+				<55 512 393600 800000>; /* 49.2MHz & 100MHz */
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1005,6 +1005,7 @@
 		qcom,bam-consumer-pipe-index = <12>;
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,master-id = <86>;
+		qcom,rt-priority;
 		status = "disabled";
 	};
 
@@ -1454,6 +1455,20 @@
 	hostless: qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
+
+	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
+		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-num-slots = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "primary";
+	};
+
 	qcom,vidc@1d00000 {
 		compatible = "qcom,msm-vidc";
 		reg = <0x01d00000 0xff000>;
