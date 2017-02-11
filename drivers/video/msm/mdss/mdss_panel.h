@@ -110,6 +110,13 @@ enum {
 	MODE_GPIO_HIGH,
 	MODE_GPIO_LOW,
 };
+enum dsi_lane_ids {
+	DSI_LANE_0,
+	DSI_LANE_1,
+	DSI_LANE_2,
+	DSI_LANE_3,
+	DSI_LANE_MAX,
+};
 
 struct mdss_rect {
 	u16 x;
@@ -309,6 +316,8 @@ struct mipi_panel_info {
 	char lp11_init;
 	u32  init_delay;
 	u32  post_init_delay;
+	u32  phy_lane_clamp_mask;	/*DSI physical lane clamp mask*/
+
 	u32  power_off_delay;
 	u32  additional_delay;
 };
@@ -386,6 +395,7 @@ struct mdss_panel_info {
 	u32 clk_rate;
 	u32 clk_min;
 	u32 clk_max;
+	u32 mdp_transfer_time_us;
 	u32 frame_count;
 	u32 is_3d_panel;
 	u32 out_format;
@@ -505,6 +515,7 @@ struct mdss_panel_debugfs_info {
 	u32 xres;
 	u32 yres;
 	struct lcd_panel_info lcdc;
+	struct dentry *parent;
 	u32 override_flag;
 	char frame_rate;
 	struct mdss_panel_debugfs_info *next;

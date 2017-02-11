@@ -39,6 +39,7 @@
 #define NT35596_MAX_ERR_CNT 2
 
 #define MIN_REFRESH_RATE 48
+#define DEFAULT_MDP_TRANSFER_TIME 14000
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -1529,6 +1530,127 @@ void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		led_trigger_unregister_simple(bl_led_trigger);
 }
 
+
+/**
+ * get_mdss_dsi_even_lane_clam_mask() - Computest DSI lane 0 & 2 clamps mask
+ * @dlane_swap: dsi_lane_map_type
+ * @lane_id: DSI lane (DSI_LANE_0)/(DSI_LANE_2)
+ *
+ * Return DSI lane 0 & 2 clamp mask based on lane swap configuration.
+ * Clamp Bit for Physical lanes
+ *      Lane Num        Bit     Mask
+ *      Lane0           Bit 7   0x80
+ *      Lane1           Bit 5   0x20
+ *      Lane2           Bit 3   0x08
+ *      Lane3           Bit 2   0x02
+ */
+u32 get_mdss_dsi_even_lane_clam_mask(char dlane_swap,
+				     enum dsi_lane_ids lane_id)
+{
+	u32 lane0_mask = 0;
+	u32 lane2_mask = 0;
+
+	switch (dlane_swap) {
+	case DSI_LANE_MAP_0123:
+	case DSI_LANE_MAP_0321:
+		lane0_mask = 0x80;
+		lane2_mask = 0x08;
+		break;
+	case DSI_LANE_MAP_3012:
+	case DSI_LANE_MAP_1032:
+		lane0_mask = 0x20;
+		lane2_mask = 0x02;
+		break;
+	case DSI_LANE_MAP_2301:
+	case DSI_LANE_MAP_2103:
+		lane0_mask = 0x08;
+		lane2_mask = 0x80;
+		break;
+	case DSI_LANE_MAP_1230:
+	case DSI_LANE_MAP_3210:
+		lane0_mask = 0x02;
+		lane2_mask = 0x20;
+		break;
+	default:
+		lane0_mask = 0x00;
+		lane2_mask = 0x00;
+		break;
+	}
+	if (lane_id == DSI_LANE_0)
+		return lane0_mask;
+	else if (lane_id == DSI_LANE_2)
+		return lane2_mask;
+	else
+		return 0;
+}
+
+/**
+ * get_mdss_dsi_odd_lane_clam_mask() - Computest DSI lane 1 & 3 clamps mask
+ * @dlane_swap: dsi_lane_map_type
+ * @lane_id: DSI lane (DSI_LANE_1)/(DSI_LANE_3)
+ *
+ * Return DSI lane 1 & 3 clamp mask based on lane swap configuration.
+ */
+u32 get_mdss_dsi_odd_lane_clam_mask(char dlane_swap,
+					enum dsi_lane_ids lane_id)
+{
+	u32 lane1_mask = 0;
+	u32 lane3_mask = 0;
+
+	switch (dlane_swap) {
+	case DSI_LANE_MAP_0123:
+	case DSI_LANE_MAP_2103:
+		lane1_mask = 0x20;
+		lane3_mask = 0x02;
+		break;
+	case DSI_LANE_MAP_3012:
+	case DSI_LANE_MAP_3210:
+		lane1_mask = 0x08;
+		lane3_mask = 0x80;
+		break;
+	case DSI_LANE_MAP_2301:
+	case DSI_LANE_MAP_0321:
+		lane1_mask = 0x02;
+		lane3_mask = 0x20;
+		break;
+	case DSI_LANE_MAP_1230:
+	case DSI_LANE_MAP_1032:
+		lane1_mask = 0x80;
+		lane3_mask = 0x08;
+		break;
+	default:
+		lane1_mask = 0x00;
+		lane3_mask = 0x00;
+		break;
+	}
+	if (lane_id == DSI_LANE_1)
+		return lane1_mask;
+	else if (lane_id == DSI_LANE_3)
+		return lane3_mask;
+	else
+		return 0;
+}
+static void mdss_dsi_set_lane_clamp_mask(struct mipi_panel_info *mipi)
+{
+	u32 mask = 0;
+
+	if (mipi->data_lane0)
+		mask = get_mdss_dsi_even_lane_clam_mask(mipi->dlane_swap,
+					DSI_LANE_0);
+	if (mipi->data_lane1)
+		mask |= get_mdss_dsi_odd_lane_clam_mask(mipi->dlane_swap,
+					DSI_LANE_1);
+	if (mipi->data_lane2)
+		mask |= get_mdss_dsi_even_lane_clam_mask(mipi->dlane_swap,
+					DSI_LANE_2);
+	if (mipi->data_lane3)
+		mask |= get_mdss_dsi_odd_lane_clam_mask(mipi->dlane_swap,
+					DSI_LANE_3);
+
+	mipi->phy_lane_clamp_mask = mask;
+}
+
+
 static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -1837,6 +1959,8 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.frame_rate = (!rc ? tmp : 60);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-clockrate", &tmp);
 	pinfo->clk_rate = (!rc ? tmp : 0);
+	rc = of_property_read_u32(np, "qcom,mdss-mdp-transfer-time-us", &tmp);
+	pinfo->mdp_transfer_time_us = (!rc ? tmp : DEFAULT_MDP_TRANSFER_TIME);
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
 		pr_err("%s:%d, Unable to read Phy timing settings",
@@ -1974,6 +2098,8 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
 		return rc;
 	}
+
+	mdss_dsi_set_lane_clamp_mask(&pinfo->mipi);
 
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	mdss_samsung_panel_init(node, ctrl_pdata);
