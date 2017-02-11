@@ -203,7 +203,8 @@
 				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
-				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&bt_a2dp_rx>,
+				<&int_fm_rx>, <&int_fm_tx>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>;
@@ -215,11 +216,12 @@
 				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
 				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
-				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
-				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
-				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
-				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293",	"msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 	};
@@ -390,6 +392,14 @@
 			< 1094400000 6>,
 			< 1152000000 7>;
 
+		qcom,speed3-bin-v0 =
+			<          0 0>,
+			<  200000000 1>,
+			<  400000000 2>,
+			<  533333000 3>,
+			<  800000000 4>,
+			<  998400000 5>;
+
 		qcom,speed0-bin-v1 =
 			<          0 0>,
 			<  200000000 1>,
@@ -412,6 +422,14 @@
 			< 1152000000 7>,
 			< 1209600000 8>,
 			< 1363200000 9>;
+
+		qcom,speed3-bin-v1 =
+			<          0 0>,
+			<  200000000 1>,
+			<  400000000 2>,
+			<  533333000 3>,
+			<  800000000 4>,
+			<  998400000 5>;
 	};
 
 	cpubw: qcom,cpubw@0 {
@@ -881,6 +899,7 @@
 			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 25 1>;
 			label = "modem";
+			qcom,not-loadable;
 		};
 
 		qcom,smsm-modem {
@@ -1098,6 +1117,11 @@
 		bt_sco_tx: qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12290>;
 		};
 
 		int_fm_rx: qcom,msm-dai-q6-int-fm-rx {
@@ -1417,7 +1441,7 @@
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
-		qcom,pronto-vddmx-supply = <&pm8916_l3>;
+		qcom,pronto-vddmx-supply = <&pm8916_l3_corner_ao>;
 		qcom,pronto-vddcx-supply = <&pm8916_s1_corner>;
 		qcom,pronto-vddpx-supply = <&pm8916_l7>;
 		qcom,iris-vddxo-supply   = <&pm8916_l7>;
