@@ -98,9 +98,8 @@ static int compat_get_fastrpc_ioctl_invoke(
 	if (err)
 		return -EFAULT;
 
-	pra = (union remote_arg *)(inv + 1);
-	err = put_user(pra, &inv->inv.pra);
-	err |= put_user(sc, &inv->inv.sc);
+	inv->inv.pra = (union remote_arg *)(inv + 1);
+	err = put_user(sc, &inv->inv.sc);
 	err |= get_user(u, &inv32->inv.handle);
 	err |= put_user(u, &inv->inv.handle);
 	err |= get_user(p, &inv32->inv.pra);
@@ -108,11 +107,12 @@ static int compat_get_fastrpc_ioctl_invoke(
 		return err;
 
 	pra32 = compat_ptr(p);
-	pra = (union remote_arg *)(inv + 1);
+	pra = inv->inv.pra;
 	num = REMOTE_SCALARS_INBUFS(sc) + REMOTE_SCALARS_OUTBUFS(sc);
 	for (j = 0; j < num; j++) {
 		err |= get_user(p, &pra32[j].buf.pv);
-		err |= put_user(p, (uintptr_t *)&pra[j].buf.pv);
+		pra[j].buf.pv = NULL;
+		err |= put_user(p, (compat_uptr_t *)&pra[j].buf.pv);
 		err |= get_user(s, &pra32[j].buf.len);
 		err |= put_user(s, &pra[j].buf.len);
 	}
@@ -121,7 +121,7 @@ static int compat_get_fastrpc_ioctl_invoke(
 		err |= put_user(u, &pra[num + j].h);
 	}
 
-	err |= put_user(NULL, &inv->fds);
+	inv->fds = NULL;
 	if (cmd == COMPAT_FASTRPC_IOCTL_INVOKE_FD) {
 		err |= get_user(p, &inv32->fds);
 		err |= put_user(p, (compat_uptr_t *)&inv->fds);
@@ -173,7 +173,8 @@ static int compat_get_fastrpc_ioctl_mmap(
 	err |= get_user(u, &map32->flags);
 	err |= put_user(u, &map->flags);
 	err |= get_user(p, &map32->vaddrin);
-	err |= put_user(p, (uintptr_t *)&map->vaddrin);
+	map->vaddrin = NULL;
+	err |= put_user(p, (compat_uptr_t *)&map->vaddrin);
 	err |= get_user(s, &map32->size);
 	err |= put_user(s, &map->size);
 

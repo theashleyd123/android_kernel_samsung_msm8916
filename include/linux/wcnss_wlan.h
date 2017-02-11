@@ -32,8 +32,8 @@ struct wcnss_wlan_config {
 	int	is_pronto_vt;
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
-	int	vbatt;
 	int	iris_id;
+	int	vbatt;
 };
 
 enum {
@@ -123,8 +123,9 @@ u32 wcnss_get_wlan_rx_buff_count(void);
 int wcnss_wlan_iris_xo_mode(void);
 void wcnss_flush_work(struct work_struct *work);
 void wcnss_flush_delayed_work(struct delayed_work *dwork);
-void wcnss_dump_stack(struct task_struct *task);
 int wcnss_get_iris_name(char *iris_version);
+void wcnss_en_wlan_led_trigger(void);
+void wcnss_dump_stack(struct task_struct *task);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);
