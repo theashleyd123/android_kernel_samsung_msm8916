@@ -23,6 +23,7 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
@@ -959,9 +960,50 @@ int mdp3_dynamic_clock_gating_ctrl(int enable)
 	return rc;
 }
 
+/**
+ * mdp3_get_panic_lut_cfg() - calculate panic and robust lut mask
+ * @panel_width: Panel width
+ *
+ * DMA buffer has 16 fill levels. Which needs to configured as safe
+ * and panic levels based on panel resolutions.
+ * No. of fill levels used = ((panel active width * 8) / 512).
+ * Roundoff the fill levels if needed.
+ * half of the total fill levels used will be treated as panic levels.
+ * Roundoff panic levels if total used fill levels are odd.
+ *
+ * Sample calculation for 720p display:
+ * Fill levels used = (720 * 8) / 512 = 12.5 after round off 13.
+ * panic levels = 13 / 2 = 6.5 after roundoff 7.
+ * Panic mask = 0x3FFF (2 bits per level)
+ * Robust mask = 0xFF80 (1 bit per level)
+ */
+u64 mdp3_get_panic_lut_cfg(u32 panel_width)
+{
+	u32 fill_levels = (((panel_width * 8) / 512) + 1);
+	u32 panic_mask = 0;
+	u32 robust_mask = 0;
+	u32 i = 0;
+	u64 panic_config = 0;
+	u32 panic_levels = 0;
+
+	panic_levels = fill_levels / 2;
+	if (fill_levels % 2)
+		panic_levels++;
+
+	for (i = 0; i < panic_levels; i++) {
+		panic_mask |= (BIT((i * 2) + 1) | BIT(i * 2));
+		robust_mask |= BIT(i);
+	}
+	panic_config = ~robust_mask;
+	panic_config = panic_config << 32;
+	panic_config |= panic_mask;
+	return panic_config;
+}
+
 int mdp3_qos_remapper_setup(struct mdss_panel_data *panel)
 {
 	int rc = 0;
+	u64 panic_config = mdp3_get_panic_lut_cfg(panel->panel_info.xres);
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
 	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
@@ -979,12 +1021,15 @@ int mdp3_qos_remapper_setup(struct mdss_panel_data *panel)
 	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_1, 0x0);
 	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_2, 0x0);
 	/* PANIC setting depends on panel width*/
-	if (panel->panel_info.xres >= 720)
-		MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0xFFFF);
-	else
-		MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0x00FF);
+	MDP3_REG_WRITE(MDP3_PANIC_LUT0,	(panic_config & 0xFFFF));
+	MDP3_REG_WRITE(MDP3_PANIC_LUT1, ((panic_config >> 16) & 0xFFFF));
+	MDP3_REG_WRITE(MDP3_ROBUST_LUT, ((panic_config >> 32) & 0xFFFF));
 	MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, 0x1);
-	MDP3_REG_WRITE(MDP3_ROBUST_LUT, 0xFF00);
+	pr_debug("Panel width %d Panic Lut0 %x Lut1 %x Robust %x\n",
+		panel->panel_info.xres,
+		MDP3_REG_READ(MDP3_PANIC_LUT0),
+		MDP3_REG_READ(MDP3_PANIC_LUT1),
+		MDP3_REG_READ(MDP3_ROBUST_LUT));
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
 	rc |= mdp3_clk_update(MDP3_CLK_AXI, 0);
@@ -1691,6 +1736,9 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		if (client == MDP3_CLIENT_DMA_P) {
 			dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
 			ion_unmap_iommu(iclient, data->srcp_ihdl, dom, 0);
+			pr_debug("%s DMA_P unmap Addr Start %llx End %llx\n",
+				__func__, (u64)data->addr,
+				(u64)(data->addr + data->len));
 		} else {
 			mdp3_unmap_iommu(iclient, data->srcp_ihdl);
 		}
@@ -1756,6 +1804,9 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 			dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
 			ret = ion_map_iommu(iclient, data->srcp_ihdl, dom,
 					0, SZ_4K, 0, start, len, 0, 0);
+			pr_debug("%s DMA_P map Addr Start %llx End %llx\n",
+				__func__, (u64)data->addr,
+				(u64)(data->addr + data->len));
 		} else {
 			ret = mdp3_self_map_iommu(iclient, data->srcp_ihdl,
 				SZ_4K, data->padding, start, len, 0, 0);
@@ -2574,11 +2625,6 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("unable to get mdss gdsc regulator\n");
 		return -EINVAL;
 	}
-	rc = mdp3_footswitch_ctrl(1);
-	if (rc) {
-		pr_err("unable to turn on FS\n");
-		goto probe_done;
-	}
 
 	rc = mdp3_check_version();
 	if (rc) {
@@ -2591,6 +2637,10 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdp debugging\n");
 		goto probe_done;
 	}
+
+	/* Enable PM runtime */
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	rc = mdp3_register_sysfs(pdev);
 	if (rc)
@@ -2605,6 +2655,12 @@ static int mdp3_probe(struct platform_device *pdev)
 	if (rc)
 		pr_err("unable to configure interrupt callback\n");
 	mdp3_res->mdss_util->mdp_probe_done = true;
+
+	/*
+	 * Keep a reference to the runtime pm till device is turned
+	 * off, where this reference will be released.
+	 */
+	pm_runtime_get_sync(&pdev->dev);
 
 probe_done:
 	if (IS_ERR_VALUE(rc))
@@ -2641,41 +2697,100 @@ int mdp3_panel_get_boot_cfg(void)
 	return rc;
 }
 
-static  int mdp3_suspend_sub(struct mdp3_hw_resource *mdata)
+static  int mdp3_suspend_sub(void)
 {
 	mdp3_enable_regulator(false);
 	return 0;
 }
 
-static  int mdp3_resume_sub(struct mdp3_hw_resource *mdata)
+static  int mdp3_resume_sub(void)
 {
 	mdp3_enable_regulator(true);
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int mdp3_pm_suspend(struct device *dev)
+{
+	dev_dbg(dev, "Display pm suspend\n");
+
+	return mdp3_suspend_sub();
+}
+
+static int mdp3_pm_resume(struct device *dev)
+{
+	dev_dbg(dev, "Display pm resume\n");
+
+	/*
+	 * It is possible that the runtime status of the mdp device may
+	 * have been active when the system was suspended. Reset the runtime
+	 * status to suspended state after a complete system resume.
+	 */
+	pm_runtime_disable(dev);
+	pm_runtime_set_suspended(dev);
+	pm_runtime_enable(dev);
+
+	return mdp3_resume_sub();
+}
+#endif
+
+#if defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP)
 static int mdp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct mdp3_hw_resource *mdata = platform_get_drvdata(pdev);
+	pr_debug("Display suspend\n");
 
-	if (!mdata)
-		return -ENODEV;
-
-	pr_debug("display suspend\n");
-
-	return mdp3_suspend_sub(mdata);
+	return mdp3_suspend_sub();
 }
 
 static int mdp3_resume(struct platform_device *pdev)
 {
-	struct mdp3_hw_resource *mdata = platform_get_drvdata(pdev);
+	pr_debug("Display resume\n");
 
-	if (!mdata)
-		return -ENODEV;
-
-	pr_debug("display resume\n");
-
-	return mdp3_resume_sub(mdata);
+	return mdp3_resume_sub();
 }
+#else
+#define mdp3_suspend NULL
+#define mdp3_resume  NULL
+#endif
+
+
+#ifdef CONFIG_PM_RUNTIME
+static int mdp3_runtime_resume(struct device *dev)
+{
+	dev_dbg(dev, "Display pm runtime resume\n");
+
+	mdp3_enable_regulator(true);
+	mdp3_footswitch_ctrl(1);
+
+	return 0;
+}
+
+static int mdp3_runtime_idle(struct device *dev)
+{
+	dev_dbg(dev, "Display pm runtime idle\n");
+
+	return 0;
+}
+
+static int mdp3_runtime_suspend(struct device *dev)
+{
+	dev_dbg(dev, "Display pm runtime suspend\n");
+
+	mdp3_enable_regulator(false);
+	mdp3_footswitch_ctrl(0);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops mdp3_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mdp3_pm_suspend,
+				mdp3_pm_resume)
+	SET_RUNTIME_PM_OPS(mdp3_runtime_suspend,
+				mdp3_runtime_resume,
+				mdp3_runtime_idle)
+};
+
 
 static int mdp3_remove(struct platform_device *pdev)
 {
@@ -2698,14 +2813,15 @@ MODULE_DEVICE_TABLE(of, mdp3_dt_match);
 EXPORT_COMPAT("qcom,mdss_mdp3");
 
 static struct platform_driver mdp3_driver = {
-	.probe = mdp3_probe,
-	.remove = mdp3_remove,
-	.suspend = mdp3_suspend,
-	.resume = mdp3_resume,
+	.probe    = mdp3_probe,
+	.remove   = mdp3_remove,
+	.suspend  = mdp3_suspend,
+	.resume   = mdp3_resume,
 	.shutdown = NULL,
 	.driver = {
-		.name = "mdp3",
+		.name           = "mdp3",
 		.of_match_table = mdp3_dt_match,
+		.pm             = &mdp3_pm_ops,
 	},
 };
 

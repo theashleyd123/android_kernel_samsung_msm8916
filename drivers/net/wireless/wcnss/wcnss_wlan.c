@@ -1129,8 +1129,8 @@ void wcnss_reset_fiq(bool clk_chk_en)
 			wcnss_log_debug_regs_on_bite();
 		} else {
 			wcnss_pronto_log_debug_regs();
-			wcnss_get_mux_control();
-			wcnss_log_iris_regs();
+			if (wcnss_get_mux_control())
+				wcnss_log_iris_regs();
 		}
 		/* Insert memory barrier before writing fiq register */
 		wmb();
@@ -2667,6 +2667,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	int rc;
+	struct clk *snoc_qosgen;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
 	int is_pronto_vt;
@@ -2999,6 +3000,18 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
+	snoc_qosgen = clk_get(&pdev->dev, "snoc_qosgen");
+
+	if (IS_ERR(snoc_qosgen)) {
+		pr_err("Couldn't get snoc_qosgen\n");
+	} else {
+		if (clk_prepare_enable(snoc_qosgen)) {
+			pr_err("snoc_qosgen enable failed\n");
+		} else {
+			pr_info("snoc_qosgen configured successfully\n");
+		}
+	}
+
 	if (penv->wlan_config.is_pronto_v3) {
 		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
 
@@ -3037,6 +3050,10 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 	/* Remove pm_qos request */
 	wcnss_disable_pc_remove_req();
+
+	if (of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-indication-enabled"))
+		wcnss_en_wlan_led_trigger();
 
 	return 0;
 
