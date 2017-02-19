@@ -2181,7 +2181,7 @@
 &soc {
 	/* Samsung Feature for all MSM8916 models */
 	input_booster {
-		status = "disabled";
+		status = "enabled";
 		compatible = "input_booster";
 		#address-cells = <1>;
 		#size-cells = <0>;
