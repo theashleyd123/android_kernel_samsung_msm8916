@@ -2195,8 +2195,8 @@
 		booster,wacom_stage = <0x0001>;	// supported stage with OR operation
 
 		booster,level = <2>;			// default level
-		booster,head = <200 1209600 0>;	// default head value <time cpu_freq bimc_freq>
-		booster,tail = <300 998400 0>;	// default tail value <time cpu_freq bimc_freq>
+		booster,head = <200 998400 0>;	// default head value <time cpu_freq bimc_freq>
+		booster,tail = <300 800000 0>;	// default tail value <time cpu_freq bimc_freq>
 		/* --- Old input booster version --- */
 
 		booster_key@1 {
@@ -2207,7 +2207,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head */
-			input_booster,cpu_freqs = <1209600>;
+			input_booster,cpu_freqs = <998400>;
 			input_booster,bimc_freqs = <0>;
 
 			/* Time table */
@@ -2223,7 +2223,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head */
-			input_booster,cpu_freqs = <998400>;
+			input_booster,cpu_freqs = <800000>;
 			input_booster,bimc_freqs = <0>;
 
 			/* Time table */
@@ -2238,7 +2238,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head, 2_Head, 2_Tail */
-			input_booster,cpu_freqs = <1209600 1209600 998400>;
+			input_booster,cpu_freqs = <998400 998400 800000>;
 			input_booster,bimc_freqs = <0 0 0>;
 
 			/* Time table */
@@ -2253,7 +2253,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
-			input_booster,cpu_freqs = <1209600 1209600>;
+			input_booster,cpu_freqs = <998400 998400>;
 			input_booster,bimc_freqs = <0 0>;
 
 			/* Time table */
@@ -2268,7 +2268,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
-			input_booster,cpu_freqs = <1209600 1209600>;
+			input_booster,cpu_freqs = <998400 998400>;
 			input_booster,bimc_freqs = <0 0>;
 
 			/* Time table */
@@ -2283,7 +2283,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
-			input_booster,cpu_freqs = <1209600 998400>;
+			input_booster,cpu_freqs = <998400 800000>;
 			input_booster,bimc_freqs = <0 0>;
 
 			/* Time table */
@@ -2298,7 +2298,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
-			input_booster,cpu_freqs = <1209600 0>;
+			input_booster,cpu_freqs = <998400 0>;
 			input_booster,bimc_freqs = <0 0>;
 
 			/* Time table */
@@ -2313,7 +2313,7 @@
 
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
-			input_booster,cpu_freqs = <1209600 998400>;
+			input_booster,cpu_freqs = <998400 800000>;
 			input_booster,bimc_freqs = <0 0>;
 
 			/* Time table */
