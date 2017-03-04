@@ -146,6 +146,13 @@ config IMX132
 		snapshot config = 1920 x 1080 at 30 fps,
 		Video HDR support.
 
+config IMX219
+	bool "Sensor IMX219 (BAYER 8M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 8 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes full resolution @30fps.
+
 config OV9724
 	bool "Sensor OV9724 (BAYER 2M)"
 	depends on MSMB_CAMERA
@@ -197,6 +204,14 @@ config SR200PC20
 	---help---
 	  Siliconfile 2.0MP sensor,
 	  Front sensor.
+config SR030PC50
+	bool "Sensor for front camera"
+	depends on MSMB_CAMERA
+	default n
+	---help---
+	  Siliconfile VGA sensor,
+	  Front sensor.
+
 config SR544
     bool "Sensor for back camera"
 	depends on MSMB_CAMERA
@@ -220,6 +235,15 @@ config GC0339
 	---help---
 		gc0339 is a Galaxycore .3 MP Bayer Sensor.
 		It supports 1 or 2 mipi lanes.
+		Preview and snapshot resolution shall be 640*480 at 30 fps,
+		It does not support auto focus.
+
+config GC0310
+	bool "Sensor GC0310 (YUV .3M)"
+	depends on MSMB_CAMERA
+	---help---
+		0310 is a Galaxycore .3 MP YUV Sensor.
+		It supports 1 mipi lane.
 		Preview and snapshot resolution shall be 640*480 at 30 fps,
 		It does not support auto focus.
 
@@ -342,3 +366,23 @@ config CAM_USE_EXT_VANA_GPIO
 	depends on MSMB_CAMERA
 	---help---
 	  Board use external LDO controlled by GPIO.
+config SR130PC20
+	bool "Sensor s5k4e1 (SOC 1.3MP)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 1.3 MP SOC Sensor. It uses 1 mipi lanes,
+		Does not support auto focus, and flash
+
+config DB8221A
+	bool "Sensor for front camera"
+	depends on MSMB_CAMERA
+	default n
+	---help---
+	  Dongbu HiTek 2.0MP sensor,
+	  Front sensor.
+
+config CAM_DUAL_POWER_SEQ
+	bool "Dual power up sequence enable"
+	depends on MSMB_CAMERA
+	---help---
+		This flag will allow us to write dual power up sequence.

@@ -115,7 +115,7 @@ void wcnss_riva_log_debug_regs(void);
 void wcnss_pronto_log_debug_regs(void);
 int wcnss_is_hw_pronto_ver3(void);
 int wcnss_device_ready(void);
-int wcnss_cbc_complete(void);
+bool wcnss_cbc_complete(void);
 int wcnss_device_is_shutdown(void);
 void wcnss_riva_dump_pmic_regs(void);
 int wcnss_xo_auto_detect_enabled(void);
@@ -123,8 +123,9 @@ u32 wcnss_get_wlan_rx_buff_count(void);
 int wcnss_wlan_iris_xo_mode(void);
 void wcnss_flush_work(struct work_struct *work);
 void wcnss_flush_delayed_work(struct delayed_work *dwork);
-void wcnss_dump_stack(struct task_struct *task);
 int wcnss_get_iris_name(char *iris_version);
+void wcnss_en_wlan_led_trigger(void);
+void wcnss_dump_stack(struct task_struct *task);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);

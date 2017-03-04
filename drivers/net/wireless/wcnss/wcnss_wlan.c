@@ -55,6 +55,8 @@
 #define WCNSS_DISABLE_PC_LATENCY	100
 #define WCNSS_ENABLE_PC_LATENCY	PM_QOS_DEFAULT_VALUE
 #define WCNSS_PM_QOS_TIMEOUT	15000
+#define IS_CAL_DATA_PRESENT     0
+#define WAIT_FOR_CBC_IND	2
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -422,6 +424,7 @@ static struct {
 	struct pm_qos_request wcnss_pm_qos_request;
 	int pc_disabled;
 	struct delayed_work wcnss_pm_qos_del_req;
+	struct mutex pm_qos_mutex;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -1048,17 +1051,19 @@ static void wcnss_log_iris_regs(void)
 	}
 }
 
-void wcnss_get_mux_control(void)
+int wcnss_get_mux_control(void)
 {
 	void __iomem *pmu_conf_reg;
-	struct wcnss_wlan_config *cfg = wcnss_get_wlan_config();
 	u32 reg = 0;
 
-	pmu_conf_reg = cfg->msm_wcnss_base + PRONTO_PMU_OFFSET;
-	writel_relaxed(0, pmu_conf_reg);
+	if (NULL == penv)
+		return 0;
+
+	pmu_conf_reg = penv->msm_wcnss_base + PRONTO_PMU_OFFSET;
 	reg = readl_relaxed(pmu_conf_reg);
 	reg |= WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP;
 	writel_relaxed(reg, pmu_conf_reg);
+	return 1;
 }
 
 void wcnss_log_debug_regs_on_bite(void)
@@ -1090,8 +1095,8 @@ void wcnss_log_debug_regs_on_bite(void)
 
 		if (clk_rate) {
 			wcnss_pronto_log_debug_regs();
-			wcnss_get_mux_control();
-			wcnss_log_iris_regs();
+			if (wcnss_get_mux_control())
+				wcnss_log_iris_regs();
 		} else {
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
 			wcnss_log_iris_regs();
@@ -1107,8 +1112,8 @@ void wcnss_reset_intr(void)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_pronto_log_debug_regs();
-		wcnss_get_mux_control();
-		wcnss_log_iris_regs();
+		if (wcnss_get_mux_control())
+			wcnss_log_iris_regs();
 		wmb();
 		__raw_writel(1 << 16, penv->fiq_reg);
 	} else {
@@ -1124,8 +1129,8 @@ void wcnss_reset_fiq(bool clk_chk_en)
 			wcnss_log_debug_regs_on_bite();
 		} else {
 			wcnss_pronto_log_debug_regs();
-			wcnss_get_mux_control();
-			wcnss_log_iris_regs();
+			if (wcnss_get_mux_control())
+				wcnss_log_iris_regs();
 		}
 		/* Insert memory barrier before writing fiq register */
 		wmb();
@@ -1202,22 +1207,26 @@ void wcnss_pm_qos_update_request(int val)
 
 void wcnss_disable_pc_remove_req(void)
 {
+	mutex_lock(&penv->pm_qos_mutex);
 	if (penv->pc_disabled) {
+		penv->pc_disabled = 0;
 		wcnss_pm_qos_update_request(WCNSS_ENABLE_PC_LATENCY);
 		wcnss_pm_qos_remove_request();
 		wcnss_allow_suspend();
-		penv->pc_disabled = 0;
 	}
+	mutex_unlock(&penv->pm_qos_mutex);
 }
 
 void wcnss_disable_pc_add_req(void)
 {
+	mutex_lock(&penv->pm_qos_mutex);
 	if (!penv->pc_disabled) {
 		wcnss_pm_qos_add_request();
 		wcnss_prevent_suspend();
 		wcnss_pm_qos_update_request(WCNSS_DISABLE_PC_LATENCY);
 		penv->pc_disabled = 1;
 	}
+	mutex_unlock(&penv->pm_qos_mutex);
 }
 
 static void wcnss_smd_notify_event(void *data, unsigned int event)
@@ -1526,7 +1535,7 @@ int wcnss_device_ready(void)
 }
 EXPORT_SYMBOL(wcnss_device_ready);
 
-int wcnss_cbc_complete(void)
+bool wcnss_cbc_complete(void)
 {
 	if (penv && penv->pdev && penv->is_cbc_done &&
 		!wcnss_device_is_shutdown())
@@ -2215,6 +2224,8 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		fw_status = wcnss_fw_status();
 		pr_debug("wcnss: received WCNSS_NVBIN_DNLD_RSP from ccpu %u\n",
 			fw_status);
+		if (fw_status != WAIT_FOR_CBC_IND)
+			penv->is_cbc_done = 1;
 		wcnss_setup_vbat_monitoring();
 		break;
 
@@ -2525,7 +2536,7 @@ static void wcnss_nvbin_dnld_main(struct work_struct *worker)
 	if (!FW_CALDATA_CAPABLE())
 		goto nv_download;
 
-	if (!penv->fw_cal_available && WCNSS_CONFIG_UNSPECIFIED
+	if (!penv->fw_cal_available && IS_CAL_DATA_PRESENT
 		!= has_calibrated_data && !penv->user_cal_available) {
 		while (!penv->user_cal_available && retry++ < 5)
 			msleep(500);
@@ -2656,6 +2667,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	int rc;
+	struct clk *snoc_qosgen;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
 	int is_pronto_vt;
@@ -2988,6 +3000,18 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
+	snoc_qosgen = clk_get(&pdev->dev, "snoc_qosgen");
+
+	if (IS_ERR(snoc_qosgen)) {
+		pr_err("Couldn't get snoc_qosgen\n");
+	} else {
+		if (clk_prepare_enable(snoc_qosgen)) {
+			pr_err("snoc_qosgen enable failed\n");
+		} else {
+			pr_info("snoc_qosgen configured successfully\n");
+		}
+	}
+
 	if (penv->wlan_config.is_pronto_v3) {
 		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
 
@@ -3026,6 +3050,10 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 	/* Remove pm_qos request */
 	wcnss_disable_pc_remove_req();
+
+	if (of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-indication-enabled"))
+		wcnss_en_wlan_led_trigger();
 
 	return 0;
 
@@ -3178,7 +3206,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 		return -EFAULT;
 
 	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
-	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
+		(penv->user_cal_exp_size < count + penv->user_cal_rcvd)) {
 		pr_err(DEVICE " invalid size to write %zu\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;
@@ -3301,6 +3329,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	mutex_init(&penv->dev_lock);
 	mutex_init(&penv->ctrl_lock);
 	mutex_init(&penv->vbat_monitor_mutex);
+	mutex_init(&penv->pm_qos_mutex);
 	init_waitqueue_head(&penv->read_wait);
 
 	/* Since we were built into the kernel we'll be called as part

@@ -937,6 +937,24 @@ config TOUCHSCREEN_FT5X06
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
 
+config TOUCHSCREEN_FT5X06_PSENSOR
+       tristate "FocalTech proximity feature support"
+       depends on TOUCHSCREEN_FT5X06 && SENSORS
+       help
+         Say Y here if you want to support ft5x06's proximity
+         feature.
+
+         If unsure, say N.
+
+config TOUCHSCREEN_FT5X06_GESTURE
+       tristate "FocalTech gesture feature support"
+       depends on TOUCHSCREEN_FT5X06
+       help
+         Say Y here if you want to support ft5x06's gesture
+         feature.
+
+         If unsure, say N.
+
 config TOUCHSCREEN_MSTAR21XX
        tristate "mstar touchscreens"
        depends on I2C
@@ -1080,6 +1098,17 @@ config INPUT_MT_WRAPPER
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_IT7260_I2C
+	tristate "IT7260 Touchscreen Driver"
+	depends on I2C
+	help
+	  Say Y here if you have a IT7260 Touchscreen Driver
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called it7258_ts_i2c.
 
 config TOUCHSCREEN_MMS300
         tristate "MELFAS MMS300 touchscreen"
@@ -1110,6 +1139,45 @@ config TOUCHSCREEN_MMS300A_WAKE_GESTURE
         depends on TOUCHSCREEN_MMS300_A
         default y
 
+config TOUCHSCREEN_ZT7554_TS
+        tristate "ZINITIX ZT7554 I2C Touchscreen"
+        depends on I2C
+           help
+             Say Y here if you have the Imagis ZINITIX ZT7554 I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called Zinitix.         
+
+config TOUCHSCREEN_ZT7548_TS
+        tristate "ZINITIX ZT7548 I2C Touchscreen"
+	default n
+        depends on I2C
+           help
+             Say Y here if you have the Imagis ZINITIX ZT7548 I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called Zinitix.
+
+config TOUCHSCREEN_ZT7538_TS
+        tristate "ZINITIX ZT7548 I2C Touchscreen"
+	default n
+        depends on I2C
+           help
+             Say Y here if you have the Imagis ZINITIX ZT7538 I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called Zinitix.
+
+
 source "drivers/input/touchscreen/stm_fts/Kconfig"
 source "drivers/input/touchscreen/mxt_t/Kconfig"
 source "drivers/input/touchscreen/cyttsp5/Kconfig"
@@ -1118,5 +1186,6 @@ source "drivers/input/touchscreen/zinitix/Kconfig"
 source "drivers/input/touchscreen/wacom/Kconfig"
 source "drivers/input/touchscreen/melfas_mms400/Kconfig"
 source "drivers/input/touchscreen/zinitix_bt532/Kconfig"
+source "drivers/input/touchscreen/zinitix_zt7538/Kconfig"
 endif
 source "drivers/input/touchscreen/zinitix_j1/Kconfig"

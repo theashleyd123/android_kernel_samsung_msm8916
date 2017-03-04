@@ -754,6 +754,61 @@ power_attr(pm_freeze_timeout);
 
 #endif	/* CONFIG_FREEZER*/
 
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+static char selfdischg_usage_str[] =
+#if defined(CONFIG_ARCH_MSM8939) || defined(CONFIG_ARCH_MSM8929)
+	"[START]\n"
+	"/sys/module/lpm_levels/system/power/cpu4/wfi/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/power/cpu4/standalone_pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/power/cpu4/pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/power/cpu5/wfi/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/power/cpu5/standalone_pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/power/cpu5/pc/idle_enabled N\n"
+	"[STOP]\n"
+	"/sys/module/lpm_levels/system/power/cpu4/wfi/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/power/cpu4/standalone_pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/power/cpu4/pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/power/cpu5/wfi/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/power/cpu5/standalone_pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/power/cpu5/pc/idle_enabled Y\n"
+	"[END]\n";
+#elif defined(CONFIG_ARCH_MSM8916)
+	"[START]\n"
+	"/sys/module/lpm_levels/system/cpu0/wfi/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/cpu0/standalone_pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/cpu0/pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/cpu1/wfi/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/cpu1/standalone_pc/idle_enabled N\n"
+	"/sys/module/lpm_levels/system/cpu1/pc/idle_enabled N\n"
+	"[STOP]\n"
+	"/sys/module/lpm_levels/system/cpu0/wfi/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/cpu0/standalone_pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/cpu0/pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/cpu1/wfi/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/cpu1/standalone_pc/idle_enabled Y\n"
+	"/sys/module/lpm_levels/system/cpu1/pc/idle_enabled Y\n"
+	"[END]\n";
+#else
+	"[NOT_SUPPORT]\n";
+#endif
+
+static ssize_t selfdischg_usage_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	pr_info("%s\n", __func__);
+	return sprintf(buf, "%s", selfdischg_usage_str);
+}
+
+static struct kobj_attribute selfdischg_usage_attr = {
+	.attr	= {
+		.name = __stringify(selfdischg_usage),
+		.mode = 0440,
+	},
+	.show	= selfdischg_usage_show,
+};
+#endif /* CONFIG_SW_SELF_DISCHARGING */
+
 static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -784,6 +839,9 @@ static struct attribute * g[] = {
 	&cpufreq_table_attr.attr,
 	&cpufreq_max_limit_attr.attr,
 	&cpufreq_min_limit_attr.attr,
+#endif
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	&selfdischg_usage_attr.attr,
 #endif
 	NULL,
 };

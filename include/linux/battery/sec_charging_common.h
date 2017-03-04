@@ -151,6 +151,17 @@ enum sec_battery_full_charged {
 	/* charger power supply property, NO additional full condition */
 	SEC_BATTERY_FULLCHARGED_CHGPSY,
 };
+
+/* Self discharger type */
+enum sec_battery_discharger_type {
+	/* type ADC */
+	SEC_BAT_SELF_DISCHARGING_BY_ADC = 0,
+	/* type Fuel Gauge */
+	SEC_BAT_SELF_DISCHARGING_BY_FG,
+	/* type Charger */
+	SEC_BAT_SELF_DISCHARGING_BY_CHG,
+};
+
 #define sec_battery_full_charged_t \
 	enum sec_battery_full_charged
 
@@ -609,6 +620,12 @@ struct sec_battery_platform_data {
 	sec_charger_functions_t chg_functions_setting;
 
 	bool always_enable;
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	int self_discharging_temp_block;
+	int self_discharging_volt_block;
+	int self_discharging_temp_recov;
+	int self_discharging_temp_pollingtime;
+#endif
 
 	/* ADC setting */
 	unsigned int adc_check_count;

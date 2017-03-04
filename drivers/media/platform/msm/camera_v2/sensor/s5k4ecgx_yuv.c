@@ -170,7 +170,7 @@ int32_t s5k4ecgx_sensor_burst_write(struct msm_sensor_ctrl_t *s_ctrl, struct msm
     static uint8_t burst_data[BURST_MODE_BUFFER_MAX_SIZE * 2] = {0};
 
     // burst write related variables
-    struct msm_camera_i2c_burst_reg_array burst_reg_setting = { 0 ,};
+    struct msm_camera_i2c_reg_array burst_reg_setting = { 0 ,};
     struct msm_camera_i2c_reg_setting conf_array = {
         .reg_setting = (void * ) &burst_reg_setting,
         .size = 1,

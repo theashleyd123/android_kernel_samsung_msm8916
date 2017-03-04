@@ -27,11 +27,20 @@
 static char *regs_table = NULL;
 static int table_size;
 #endif
+#if defined(CONFIG_SR130PC20)
+#include "sr130pc20.h"
+#endif
 #if defined(CONFIG_SR200PC20)
 #include "sr200pc20.h"
 #endif
 #if defined(CONFIG_S5K4ECGX)
 #include "s5k4ecgx.h"
+#endif
+#if defined(CONFIG_SR030PC50)
+#include "sr030pc50.h"
+#endif
+#if defined(CONFIG_DB8221A)
+#include "db8221a.h"
 #endif
 
 /* Logging macro */
@@ -47,6 +56,16 @@ static int table_size;
 
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
+
+#if defined(CONFIG_SR130PC20)
+static struct msm_sensor_fn_t sr130pc20_sensor_func_tbl = {
+	.sensor_config = sr130pc20_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = sr130pc20_sensor_match_id,
+	.sensor_native_control = sr130pc20_sensor_native_control,
+};
+#endif
 
 #if defined(CONFIG_SR200PC20)
 static struct msm_sensor_fn_t sr200pc20_sensor_func_tbl = {
@@ -64,6 +83,24 @@ static struct msm_sensor_fn_t s5k4ecgx_sensor_func_tbl = {
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = s5k4ecgx_sensor_match_id,
 	.sensor_native_control = s5k4ecgx_sensor_native_control,
+};
+#endif
+#if defined(CONFIG_SR030PC50)
+static struct msm_sensor_fn_t sr030pc50_sensor_func_tbl = {
+	.sensor_config = sr030pc50_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = sr030pc50_sensor_match_id,
+	.sensor_native_control = sr030pc50_sensor_native_control,
+};
+#endif
+#if defined(CONFIG_DB8221A)
+static struct msm_sensor_fn_t db8221a_sensor_func_tbl = {
+	.sensor_config = db8221a_sensor_config,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
+	.sensor_match_id = msm_sensor_match_id,
+	.sensor_native_control = db8221a_sensor_native_control,
 };
 #endif
 
@@ -425,6 +462,14 @@ int32_t msm_sensor_driver_probe(void *setting)
 		rc = -EINVAL;
 		goto FREE_SLAVE_INFO;
 	}
+#if defined(CONFIG_SR130PC20)
+	if(slave_info->camera_id == CAMERA_2){
+
+		s_ctrl->func_tbl = &sr130pc20_sensor_func_tbl ;
+		sr130pc20_set_default_settings();
+
+	}
+#endif
 #if defined(CONFIG_SR200PC20)
 	if(slave_info->camera_id == CAMERA_2){
 		s_ctrl->func_tbl = &sr200pc20_sensor_func_tbl ;
@@ -435,7 +480,16 @@ int32_t msm_sensor_driver_probe(void *setting)
 		s_ctrl->func_tbl = &s5k4ecgx_sensor_func_tbl;
 	}
 #endif
-
+#if defined(CONFIG_SR030PC50)
+	if(slave_info->camera_id == CAMERA_2){
+		s_ctrl->func_tbl = &sr030pc50_sensor_func_tbl;
+	}
+#endif
+#if defined(CONFIG_DB8221A)
+	if(slave_info->camera_id == CAMERA_2){
+		s_ctrl->func_tbl = &db8221a_sensor_func_tbl ;
+	}
+#endif
 	CDBG("s_ctrl[%d] %p", slave_info->camera_id, s_ctrl);
 
 	if (s_ctrl->is_probe_succeed == 1) {

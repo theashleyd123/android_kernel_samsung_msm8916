@@ -105,6 +105,9 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(batt_discharging_ntc),
 	SEC_BATTERY_ATTR(batt_discharging_ntc_adc),
 	SEC_BATTERY_ATTR(batt_self_discharging_control),
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	SEC_BATTERY_ATTR(batt_sw_self_discharging),
+#endif
 };
 #if defined(CONFIG_QPNP_BMS)
 static char *pm_batt_supplied_to[] = {
@@ -1251,7 +1254,7 @@ static bool sec_bat_temperature_check(
 		if (battery->health == POWER_SUPPLY_HEALTH_OVERHEATLIMIT) {
 			battery->health = POWER_SUPPLY_HEALTH_OVERHEAT;
 		} else {
-#if defined(CONFIG_BATTERY_SWELLING_SELF_DISCHARGING)
+#if defined(CONFIG_BATTERY_SWELLING_SELF_DISCHARGING) || defined(CONFIG_SW_SELF_DISCHARGING)
 			union power_supply_propval value;
 
 			psy_do_property(battery->pdata->charger_name, get,
@@ -1277,7 +1280,7 @@ static bool sec_bat_temperature_check(
 		(battery->health == POWER_SUPPLY_HEALTH_COLD) ||
 		(battery->health == POWER_SUPPLY_HEALTH_OVERHEATLIMIT)) {
 		if (battery->status != POWER_SUPPLY_STATUS_NOT_CHARGING) {
-#if defined(CONFIG_BATTERY_SWELLING_SELF_DISCHARGING)
+#if defined(CONFIG_BATTERY_SWELLING_SELF_DISCHARGING) || defined(CONFIG_SW_SELF_DISCHARGING)
 			if ((battery->health == POWER_SUPPLY_HEALTH_OVERHEAT) ||
 				(battery->health == POWER_SUPPLY_HEALTH_OVERHEATLIMIT)) {
 				union power_supply_propval val;
@@ -2227,12 +2230,26 @@ static void sec_bat_get_battery_info(
 	battery->capacity = value.intval;
 #endif
 
+#if !defined(CONFIG_SEC_FACTORY)
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	if (battery->temperature >= battery->pdata->self_discharging_temp_block &&
+			battery->voltage_now >= battery->pdata->self_discharging_volt_block) {
+		battery->sw_self_discharging = true;
+		wake_lock(&battery->self_discharging_wake_lock);
+	} else if (battery->temperature <= battery->pdata->self_discharging_temp_recov ||
+			battery->voltage_now <= battery->pdata->swelling_drop_float_voltage) {
+		battery->sw_self_discharging = false;
+		wake_unlock(&battery->self_discharging_wake_lock);
+	}
+	pr_info("%s : sw_self_discharging (%d)\n",__func__, battery->sw_self_discharging);
+#endif
+#endif
+
 #if defined(CONFIG_MACH_KOR_EARJACK_WR)
 	value.intval = sec_bat_get_earjack_input_current(battery);
 	psy_do_property(battery->pdata->charger_name, set,
 			POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
 #endif
-
 	dev_info(battery->dev,
 		"%s:Vnow(%dmV),Inow(%dmA),Imax(%dmA),SOC(%d%%),Tbat(%d),is_hc_usb(%d)\n",
 		__func__,
@@ -2296,11 +2313,20 @@ static unsigned int sec_bat_get_polling_time(
 			battery->polling_short = false;
 		break;
 	case POWER_SUPPLY_STATUS_DISCHARGING:
-		if (battery->polling_in_sleep && (battery->ps_enable != true))
+		if (battery->polling_in_sleep && (battery->ps_enable != true)) {
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+			if (battery->voltage_now > battery->pdata->self_discharging_volt_block) {
+				if(battery->temperature > battery->pdata->self_discharging_temp_pollingtime)
+					battery->polling_time = 300;
+				else
+					battery->polling_time = 600;
+			}
+			else
+#endif
 			battery->polling_time =
 				battery->pdata->polling_time[
 				SEC_BATTERY_POLLING_TIME_SLEEP];
-		else
+		} else
 			battery->polling_time =
 				battery->pdata->polling_time[
 				battery->status];
@@ -2311,10 +2337,20 @@ static unsigned int sec_bat_get_polling_time(
 			if (!(battery->pdata->full_condition_type &
 				SEC_BATTERY_FULL_CONDITION_NOSLEEPINFULL) &&
 				battery->charging_mode ==
-				SEC_BATTERY_CHARGING_NONE)
+				SEC_BATTERY_CHARGING_NONE) {
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+			if (battery->voltage_now > battery->pdata->self_discharging_volt_block) {
+				if(battery->temperature > battery->pdata->self_discharging_temp_pollingtime)
+					battery->polling_time = 300;
+				else
+					battery->polling_time = 600;
+			}
+			else
+#endif
 				battery->polling_time =
 					battery->pdata->polling_time[
 					SEC_BATTERY_POLLING_TIME_SLEEP];
+			}
 			battery->polling_short = false;
 		} else {
 			if (battery->charging_mode ==
@@ -3203,6 +3239,12 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 		break;
 	case BATT_SELF_DISCHARGING_CONTROL:
 		break;
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	case BATT_SW_SELF_DISCHARGING:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			       battery->sw_self_discharging);
+		break;
+#endif
 	default:
 		i = -EINVAL;
 	}
@@ -3664,6 +3706,10 @@ ssize_t sec_bat_store_attrs(
 		}
 #endif
 		break;
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	case BATT_SW_SELF_DISCHARGING:
+		break;
+#endif
 	default:
 		ret = -EINVAL;
 	}
@@ -4762,6 +4808,29 @@ static int sec_bat_parse_dt(struct device *dev,
 		pdata->swelling_low_rechg_voltage = 4050;
 	}
 #endif
+
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	ret = of_property_read_u32(np, "battery,self_discharging_temp_block",
+			(unsigned int *)&pdata->self_discharging_temp_block);
+	if (ret)
+		pr_info("%s: self_discharging_temp_block is Empty\n", __func__);
+
+	ret = of_property_read_u32(np, "battery,self_discharging_volt_block",
+			(unsigned int *)&pdata->self_discharging_volt_block);
+	if (ret)
+		pr_info("%s: self_discharging_volt_block is Empty\n", __func__);
+
+	ret = of_property_read_u32(np, "battery,self_discharging_temp_recov",
+			(unsigned int *)&pdata->self_discharging_temp_recov);
+	if (ret)
+		pr_info("%s: self_discharging_temp_recov is Empty\n", __func__);
+	
+	ret = of_property_read_u32(np, "battery,self_discharging_temp_pollingtime",
+			(unsigned int *)&pdata->self_discharging_temp_pollingtime);
+	if (ret)
+		pr_info("%s: self_discharging_temp_pollingtime is Empty\n", __func__);
+#endif
+
 	np = of_find_node_by_name(NULL, "charger");
 
 	if (!np) {
@@ -4884,6 +4953,11 @@ static int sec_battery_probe(struct platform_device *pdev)
 	wake_lock_init(&battery->vbus_detect_wake_lock, WAKE_LOCK_SUSPEND,
 		       "sec-battery-vbus-detect");
 
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	wake_lock_init(&battery->self_discharging_wake_lock, WAKE_LOCK_SUSPEND,
+		       "sec-battery-self-discharging");
+#endif
+
 	/* initialization of battery info */
 	sec_bat_set_charging_status(battery, POWER_SUPPLY_STATUS_DISCHARGING);
 	battery->health = POWER_SUPPLY_HEALTH_GOOD;
@@ -4957,6 +5031,9 @@ static int sec_battery_probe(struct platform_device *pdev)
 #if defined(CONFIG_BATTERY_SWELLING_SELF_DISCHARGING)
 	battery->self_discharging = false;
 	battery->force_discharging = false;
+#endif
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	battery->sw_self_discharging = false;
 #endif
 
 	if (battery->pdata->charger_name == NULL)
@@ -5232,6 +5309,9 @@ err_wake_lock:
 	wake_lock_destroy(&battery->cable_wake_lock);
 	wake_lock_destroy(&battery->vbus_wake_lock);
 	wake_lock_destroy(&battery->vbus_detect_wake_lock);
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	wake_lock_destroy(&battery->self_discharging_wake_lock);
+#endif	
 	mutex_destroy(&battery->adclock);
 	kfree(pdata);
 err_bat_free:
@@ -5267,6 +5347,10 @@ static int sec_battery_remove(struct platform_device *pdev)
 	wake_lock_destroy(&battery->cable_wake_lock);
 	wake_lock_destroy(&battery->vbus_wake_lock);
 	wake_lock_destroy(&battery->vbus_detect_wake_lock);
+
+#if defined(CONFIG_SW_SELF_DISCHARGING)
+	wake_lock_destroy(&battery->self_discharging_wake_lock);
+#endif
 
 	mutex_destroy(&battery->adclock);
 #ifdef CONFIG_OF
