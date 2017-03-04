@@ -1598,7 +1598,6 @@ static int abov_tk_probe(struct i2c_client *client,
 	msleep(ABOV_RESET_DELAY);
 
 	info->enabled = true;
-	info->enabled = true;
 	info->irq = -1;
 	mutex_init(&info->lock);
 

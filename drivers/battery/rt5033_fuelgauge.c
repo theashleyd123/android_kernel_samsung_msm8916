@@ -1539,7 +1539,7 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
 			     enum power_supply_property psp,
 			     union power_supply_propval *val)
 {
-	union power_supply_propval value;
+	union power_supply_propval value , value2;
 	struct sec_fuelgauge_info *fuelgauge =
 		i2c_get_clientdata(client);
 
@@ -1572,11 +1572,17 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
 			break;
 			/* Current (mA) */
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
-			val->intval = 0;
-			break;
 			/* Average Current (mA) */
 		case POWER_SUPPLY_PROP_CURRENT_AVG:
-			val->intval = rt5033_get_current_average(client);
+			psy_do_property("battery", get,
+			POWER_SUPPLY_PROP_HEALTH, value);
+			psy_do_property("battery", get,
+			POWER_SUPPLY_PROP_ONLINE, value2);
+
+			if ((value.intval != POWER_SUPPLY_HEALTH_GOOD) || (value2.intval == POWER_SUPPLY_TYPE_USB))
+				val->intval = -1;
+			else
+				val->intval = 0;
 			break;
 		case POWER_SUPPLY_PROP_CHARGE_FULL:
 			val->intval =
@@ -2026,12 +2032,12 @@ static int rt5033_fuelgauge_probe(struct i2c_client *client,
 	fuelgauge->psy_fg.properties	= rt5033_fuelgauge_props;
 	fuelgauge->psy_fg.num_properties =
 		ARRAY_SIZE(rt5033_fuelgauge_props);
-    fuelgauge->capacity_max = fuelgauge->pdata->capacity_max;
-    raw_soc_val.intval = SEC_FUELGAUGE_CAPACITY_TYPE_RAW;
-    sec_hal_fg_get_property(fuelgauge->client,
-            POWER_SUPPLY_PROP_CAPACITY, &raw_soc_val);
-    raw_soc_val.intval /= 10;
-    if(raw_soc_val.intval > fuelgauge->pdata->capacity_max)
+	fuelgauge->capacity_max = fuelgauge->pdata->capacity_max;
+	raw_soc_val.intval = SEC_FUELGAUGE_CAPACITY_TYPE_RAW;
+	sec_hal_fg_get_property(fuelgauge->client,
+	    POWER_SUPPLY_PROP_CAPACITY, &raw_soc_val);
+	raw_soc_val.intval /= 10;
+	if(raw_soc_val.intval > fuelgauge->pdata->capacity_max)
 			sec_fg_calculate_dynamic_scale(fuelgauge, 100);
 
 	ret = power_supply_register(&client->dev, &fuelgauge->psy_fg);
