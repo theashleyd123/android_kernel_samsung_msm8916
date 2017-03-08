@@ -116,9 +116,6 @@ CONFIG_TIGHT_PGDAT_BALANCE=y
 CONFIG_VNSWAP=y
 CONFIG_SWAP_ENABLE_READAHEAD=n
 
-#Enable Kernel Samepage merging
-CONFIG_KSM=y
-
 #
 # Qualcomm Atheros Prima WLAN module
 #
