@@ -54,7 +54,7 @@ static sec_bat_adc_table_data_t temp_table[] = {
 	{41124, -150},
 	{41510, -200},
 };
-#elif defined(CONFIG_MACH_FORTUNA_CHN_ZT)
+#elif defined(CONFIG_MACH_FORTUNA_CHN_ZT) || defined(CONFIG_MACH_FORTUNA_EUR_OPEN)
 static sec_bat_adc_table_data_t temp_table[] = {
 	{26056, 900},
 	{26268, 850},
@@ -128,7 +128,7 @@ static sec_bat_adc_table_data_t temp_table[] = {
 #define TEMP_HIGH_RECOVERY_LPM     495
 #define TEMP_LOW_THRESHOLD_LPM     (-10)
 #define TEMP_LOW_RECOVERY_LPM      (-5)
-#elif defined(CONFIG_MACH_FORTUNA_CHN_ZT) || defined(CONFIG_MACH_FORTUNA_CTC)
+#elif defined(CONFIG_MACH_FORTUNA_CHN_ZT) || defined(CONFIG_MACH_FORTUNA_EUR_OPEN) || defined(CONFIG_MACH_FORTUNA_CTC)
 #define TEMP_HIGH_THRESHOLD_EVENT  600
 #define TEMP_HIGH_RECOVERY_EVENT   460
 #define TEMP_LOW_THRESHOLD_EVENT   (-50)

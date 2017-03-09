@@ -214,7 +214,11 @@ endif
 endif
 
 ifeq ($(CONFIG_SEC_FORTUNA_PROJECT),y)
-	ifeq ($(CONFIG_MACH_FORTUNA_TFN),y)
+	ifeq ($(CONFIG_MACH_FORTUNA_EUR_OPEN),y)
+		dtb-y += msm8916-sec-fortuna-eur-r00.dtb
+		dtb-y += msm8916-sec-fortuna-eur-r01.dtb
+		dtb-y += msm8916-sec-fortuna-eur-r02.dtb
+	else ifeq ($(CONFIG_MACH_FORTUNA_TFN),y)
 		dtb-y += msm8916-sec-fortuna-tfn-r00.dtb
 		dtb-y += msm8916-sec-fortuna-tfn-r02.dtb
 	else ifeq ($(CONFIG_MACH_FORTUNA_USC),y)
