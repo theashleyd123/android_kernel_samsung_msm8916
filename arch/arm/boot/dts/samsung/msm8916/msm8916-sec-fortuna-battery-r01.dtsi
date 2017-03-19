@@ -16,7 +16,7 @@
 		compatible = "samsung,sec-battery";
 		battery,vendor = "SDI SDI";
 		battery,charger_name = "rt5033-charger";
-		battery,fuelgauge_name = "sec-fuelgauge";
+		battery,fuelgauge_name = "rt5033-fuelgauge";
 		battery,technology = <2>; /* POWER_SUPPLY_TECHNOLOGY_LION */
 
 		battery,chip_vendor = "QCOM";
@@ -70,8 +70,8 @@
 		   SEC_BATTERY_FULL_CONDITION_NOTIMEFULL |
 		   SEC_BATTERY_FULL_CONDITION_VCELL */
 		battery,full_condition_type = <13>;
-		battery,full_condition_soc = <95>;
-		battery,full_condition_vcell = <4300>;
+		battery,full_condition_soc = <93>;
+		battery,full_condition_vcell = <4250>;
 
 		battery,recharge_check_count = <5>;
 		battery,recharge_condition_type = <4>; /* SEC_BATTERY_RECHARGE_CONDITION_VCELL */
@@ -81,6 +81,8 @@
 		battery,charging_total_time = <21600>;
 		battery,recharging_total_time = <5400>;
 		battery,charging_reset_time = <0>;
+
+		qcom,sec-battery-vadc = <&pm8916_vadc>;
 
 		charger{
 			status = "disable";
@@ -115,8 +117,8 @@
 		                              3735  0     21  44   18  225
 		                              3853  0     21  66   18  225
 		                              4218  0     21  121  18  225
-		                              3200  450   25  49   145 15
-		                              3735  450   25  56   145 15
+		                              3200  450   25  60   145 15
+		                              3735  450   25  66   145 15
 		                              3853  450   25  70   145 15
 		                              4218  450   25  154  145 15>;
 		battery0,vg_comp_normal_size = <4 3>; /* necessary */
@@ -128,8 +130,8 @@
 		                                3735  0     21  44   18  225
 		                                3853  0     21  66   18  225
 		                                4218  0     21  121  18  225
-		                                3200  450   25  49   145 15
-		                                3735  450   25  56   145 15
+		                                3200  450   25  60   145 15
+		                                3735  450   25  66   145 15
 		                                3853  450   25  70   145 15
 		                                4218  450   25  154  145 15>;
 		battery0,special_case = <0>;

@@ -61,10 +61,10 @@
 			qcom,cam-power-seq-val = "cam_vio";
 			qcom,cam-power-seq-cfg-val = <1>;
 			qcom,cam-power-seq-delay =   <1>;
-			qcom,num-blocks = <1>;
-			qcom,page0 = <0 0 0 0 0 0>;
-			qcom,poll0 = <0 0 0 0 0 0>;
-			qcom,mem0 = <0x1200 0x00 2 0 1 0>;
+			qcom,cal-num-blocks = <1>;
+			qcom,cal-page0 = <0 0 0 0 0 0>;
+			qcom,cal-poll0 = <0 0 0 0 0 0>;
+			qcom,cal-mem0 = <0x1200 0x00 2 0 1 0>;
 		};
       };
       i2c_23: i2c@23 {
