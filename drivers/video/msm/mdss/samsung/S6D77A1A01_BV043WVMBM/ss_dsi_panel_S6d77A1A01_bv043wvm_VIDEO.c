@@ -103,6 +103,8 @@ static struct dsi_panel_cmds * mdss_brightness_tft_pwm(struct mdss_dsi_ctrl_pdat
 
 	vdd->dtsi_data[ctrl->ndx].tft_pwm_tx_cmds->cmds->payload[1] = vdd->scaled_level ;
 
+	*level_key = 0;
+
 	return &vdd->dtsi_data[ctrl->ndx].tft_pwm_tx_cmds[vdd->panel_revision];
 }
 
@@ -198,7 +200,8 @@ static void mdss_panel_init_revB(struct samsung_display_driver_data *vdd)
 	pr_info("%s : %s", __func__, vdd->panel_name);
 
 	vdd->support_panel_max = HX8369B_BV045WVM_SUPPORT_PANEL_COUNT;
-	vdd->support_mdnie_lite = true;
+	//vdd->support_mdnie_lite = true;
+	vdd->support_mdnie_lite = false;
 	vdd->mdnie_tune_size1 = 113;
 	vdd->mdnie_tune_size2 = 0;
 	vdd->manufacture_id_dsi[vdd->support_panel_max - 1] = get_lcd_attached("GET");
@@ -243,7 +246,7 @@ static int __init samsung_panel_init(void)
 
 	vdd->panel_name = mdss_mdp_panel + 8;
 	pr_info("%s : %s\n", __func__, vdd->panel_name);
-
+	
 	if (!strncmp(vdd->panel_name, panel_string, strlen(panel_string)))
 		vdd->panel_func.samsung_panel_init = mdss_panel_init_revB;
 

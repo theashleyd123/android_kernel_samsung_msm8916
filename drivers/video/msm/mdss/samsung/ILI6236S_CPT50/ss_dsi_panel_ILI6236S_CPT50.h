@@ -29,12 +29,13 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
  * 02110-1301, USA.
  *
 */
-#ifndef SS_DSI_PANEL_SC7798A_BV045WVM_H
-#define SS_DSI_PANEL_SC7798A_BV045WVM_H
+#ifndef SS_DSI_PANEL_ILI6236S_CPT50_H
+#define SS_DSI_PANEL_ILI6236S_CPT50_H
 
 #include "../ss_dsi_panel_common.h"
 
-#define SC7798A_BV045WVM_SUPPORT_PANEL_COUNT 1
-#define LCD_DEFAUL_BL_LEVEL 89
+#define ILI6236S_CPT50_SUPPORT_PANEL_COUNT 1
+#define LCD_DEFAUL_BL_LEVEL 116
 
+extern void pwm_backlight_control(int enable);
 #endif

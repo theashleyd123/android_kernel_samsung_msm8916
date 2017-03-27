@@ -64,12 +64,12 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
 #define LCD_DEBUG(X, ...) pr_info("[MDSS]%s:"X, __func__, ## __VA_ARGS__);
 
 #define MAX_PANEL_NAME_SIZE 100
-#define DEFAULT_BRIGHTNESS 255
+#define DEFAULT_BRIGHTNESS 180
 
 #define SUPPORT_PANEL_COUNT 2
 #define SUPPORT_PANEL_REVISION 20
 #define PARSE_STRING 64
-#define MAX_EXTRA_POWER_GPIO 4
+#define MAX_EXTRA_POWER_GPIO 3
 #define MAX_BACKLIGHT_TFT_GPIO 4
 
 /* Brightness stuff */
@@ -322,13 +322,13 @@ struct samsung_display_dtsi_data {
 	int pwm_ap_support;
 	const char *tft_module_name;
 	const char *panel_vendor;
+	int lcd_display_format_bgr;
 
 	/* MDINE HBM_CE_TEXT_MDNIE mode used */
 	int hbm_ce_text_mode_support;
 
 	/* Backlight IC discharge delay */
 	int blic_discharging_delay_tft;
-	int cabc_delay;
 };
 
 struct samsung_brightenss_data {
@@ -451,6 +451,7 @@ struct panel_func {
 	void (*samsung_bl_ic_pwm_en)(int enable);
 	void (*samsung_bl_ic_i2c_ctrl)(int scaled_level);
 	void (*samsung_bl_ic_outdoor)(int enable);
+	void (*samsung_backlight_ic_power_on)(int enable);
 
 	/*LVDS*/
 	void (*samsung_ql_lvds_register_set)(struct mdss_dsi_ctrl_pdata *ctrl);
@@ -664,6 +665,7 @@ int samsung_display_hall_ic_status(struct notifier_block *nb,
 /* SAMSUNG COMMON HEADER*/
 #include "ss_dsi_smart_dimming_common.h"
 #include "ss_dsi_mdnie_lite_common.h" /* MDNIE_LITE_COMMON_HEADER */
+
 /* SAMSUNG MODEL HEADER */
 #include "EA8061V_AMS497EE01/ss_dsi_panel_EA8061V_AMS497EE01.h"
 #include "NT71391_BP080WX7/ss_dsi_panel_NT71391_BP080WX7.h"

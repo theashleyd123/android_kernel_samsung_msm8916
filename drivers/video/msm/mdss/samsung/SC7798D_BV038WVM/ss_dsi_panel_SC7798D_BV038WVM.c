@@ -29,17 +29,15 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
  * 02110-1301, USA.
  *
 */
-//#include "ss_dsi_panel_HX8369B_BV045WVM.h"
-//#include "ss_dsi_mdnie_HX8369B_BV045WVM.h"
-#include "ss_dsi_panel_S6d77A1A01_bv043wvm_VIDEO.h"
-#include "ss_dsi_mdnie_S6d77A1A01_bv043wvm_VIDEO.h"
+#include "ss_dsi_panel_SC7798D_BV038WVM.h"
+#include "ss_dsi_mdnie_SC7798D_BV038WVM.h"
 static int is_first_boot = 1;
+static int prev_bl_level = 0;
 
 static int mdss_panel_on_pre(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct samsung_display_driver_data *vdd = check_valid_ctrl(ctrl);
 
-	printk("%s:%d --by sean\n",__func__,__LINE__);
 	if (IS_ERR_OR_NULL(vdd)) {
 		pr_err("%s: Invalid data ctrl : 0x%zx vdd : 0x%zx", __func__, (size_t)ctrl, (size_t)vdd);
 		return false;
@@ -71,6 +69,8 @@ static int mdss_panel_on_post(struct mdss_dsi_ctrl_pdata *ctrl)
 		is_first_boot = 0;
 	}
 
+	if(prev_bl_level)
+		mdss_samsung_brightness_dcs(ctrl, prev_bl_level);
 	return true;
 }
 
@@ -88,6 +88,27 @@ static int mdss_panel_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 	return true;
 }
 
+void mdss_samsung_cabc_update_tft(int val)
+{
+	static int prev_val;
+	struct samsung_display_driver_data *vdd = samsung_get_vdd();
+
+	if (IS_ERR_OR_NULL(vdd)) {
+		pr_err("%s vdd is error", __func__);
+		return;
+	}
+
+	if(prev_val == val)
+		return;
+
+	if(val)
+		mdss_samsung_send_cmd(vdd->ctrl_dsi[DISPLAY_1], PANEL_CABC_OFF);
+	else if(vdd->mdss_panel_tft_outdoormode_update)
+			vdd->mdss_panel_tft_outdoormode_update(vdd->ctrl_dsi[DISPLAY_1]);
+
+	prev_val = val;
+}
+
 static struct dsi_panel_cmds * mdss_brightness_tft_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int *level_key)
 {
 	struct samsung_display_driver_data *vdd = check_valid_ctrl(ctrl);
@@ -98,10 +119,18 @@ static struct dsi_panel_cmds * mdss_brightness_tft_pwm(struct mdss_dsi_ctrl_pdat
 	}
 
 	vdd->scaled_level = get_scaled_level(vdd, ctrl->ndx);
-
+	//vdd->scaled_level = 210;
 	pr_info("%s bl_level : %d scaled_level : %d\n", __func__, vdd->bl_level, vdd->scaled_level);
 
 	vdd->dtsi_data[ctrl->ndx].tft_pwm_tx_cmds->cmds->payload[1] = vdd->scaled_level ;
+
+	if(vdd->bl_level != 0)
+		prev_bl_level = vdd->bl_level;
+
+	if(vdd->bl_level >=255 && vdd->auto_brightness)
+		mdss_samsung_cabc_update_tft(1);
+	else if(vdd->auto_brightness)
+		mdss_samsung_cabc_update_tft(0);
 
 	return &vdd->dtsi_data[ctrl->ndx].tft_pwm_tx_cmds[vdd->panel_revision];
 }
@@ -193,15 +222,15 @@ static void dsi_update_mdnie_data(void)
 	mdnie_data.dsi0_rgb_sensor_mdnie_2_size = 0;
 }
 
-static void mdss_panel_init_revB(struct samsung_display_driver_data *vdd)
+static void mdss_panel_init(struct samsung_display_driver_data *vdd)
 {
 	pr_info("%s : %s", __func__, vdd->panel_name);
 
-	vdd->support_panel_max = HX8369B_BV045WVM_SUPPORT_PANEL_COUNT;
+	vdd->support_panel_max = SC7798D_BV038WVM_SUPPORT_PANEL_COUNT;
+	vdd->manufacture_id_dsi[vdd->support_panel_max - 1] = get_lcd_attached("GET");
 	vdd->support_mdnie_lite = true;
 	vdd->mdnie_tune_size1 = 113;
 	vdd->mdnie_tune_size2 = 0;
-	vdd->manufacture_id_dsi[vdd->support_panel_max - 1] = get_lcd_attached("GET");
 
 	vdd->support_cabc = true;
 	/* ON/OFF */
@@ -239,13 +268,13 @@ static void mdss_panel_init_revB(struct samsung_display_driver_data *vdd)
 static int __init samsung_panel_init(void)
 {
 	struct samsung_display_driver_data *vdd = samsung_get_vdd();
-	char panel_string[] = "qcom,mdss_dsi_S6D77A1A01_bv043wvm_wvga_video";
+	char panel_string[] = "ss_dsi_panel_SC7798D_BV038WVM_WVGA";
 
 	vdd->panel_name = mdss_mdp_panel + 8;
 	pr_info("%s : %s\n", __func__, vdd->panel_name);
 
 	if (!strncmp(vdd->panel_name, panel_string, strlen(panel_string)))
-		vdd->panel_func.samsung_panel_init = mdss_panel_init_revB;
+		vdd->panel_func.samsung_panel_init = mdss_panel_init;
 
 	return 0;
 }
