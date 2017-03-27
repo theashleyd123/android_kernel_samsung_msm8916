@@ -20,7 +20,7 @@
 #include "msm_sd.h"
 
 /* Logging macro */
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
+//#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -175,6 +175,8 @@ static ssize_t front_camera_type_show(struct device *dev,
 	char cam_type[] = "SILICONFILE_SR130PC20\n";
 #elif defined(CONFIG_SR200PC20)
 	char cam_type[] = "SILICONFILE_SR200PC20\n";
+#elif defined(CONFIG_S5K6B2YX)
+	char cam_type[] = "SLSI_S5K6B2YX\n";
 #elif defined(CONFIG_DB8221A)
 	char cam_type[] = "DONGBU_DB8221A\n";
 #else

@@ -10,6 +10,7 @@
 
 #define I2C_SEQ_REG_SETTING_MAX   5
 #define I2C_SEQ_REG_DATA_MAX      256
+#define I2C_REG_DATA_MAX         (8*1024)
 #define MAX_CID                   16
 
 #define MSM_SENSOR_MCLK_8HZ   8000000
@@ -192,7 +193,7 @@ enum sensor_stats_type {
 #define CAMERA_FLASH_OFF        0
 #define CAMERA_FLASH_ON         2
 #define CAMERA_FLASH_AUTO       1
-#define CAMERA_FLASH_TORCH      3 
+#define CAMERA_FLASH_TORCH      3
 
 //AF modes
 #define CAMERA_AF_AUTO          0
@@ -263,6 +264,8 @@ enum msm_camera_vreg_name_t {
 	CAM_VDIG,
 	CAM_VIO,
 	CAM_VANA,
+	CAM_VANA_VT,
+	CAM_VIO_VT,
 	CAM_VAF,
 	CAM_VREG_MAX,
 };
@@ -846,7 +849,7 @@ enum msm_actuator_write_type {
 
 enum msm_actuator_init_focus_type{
   MSM_ACTUATOR_INIT_FOCUS_DELAY = 0xDD,
-  MSM_ACTUATOR_INIT_FOCUS_READ_STATUS = 0xDC,  
+  MSM_ACTUATOR_INIT_FOCUS_READ_STATUS = 0xDC,
 };
 
 struct msm_actuator_reg_params_t {
@@ -937,7 +940,7 @@ enum msm_cam_flicker_type {
 
 #define VIDIOC_MSM_SENSOR_NATIVE_CMD \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct ioctl_native_cmd)
-	
+
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 
 #endif /* __LINUX_MSM_CAM_SENSOR_H */
