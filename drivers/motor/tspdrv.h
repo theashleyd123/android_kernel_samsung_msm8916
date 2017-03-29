@@ -98,7 +98,7 @@ int32_t g_nforce_32;
 
 #if defined(CONFIG_SEC_GT510_PROJECT)
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
-#elif defined(CONFIG_MACH_FORTUNA_TMO)
+#elif defined(CONFIG_SEC_FORTUNA_PROJECT)
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
 #else
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
@@ -109,7 +109,7 @@ int32_t g_nforce_32;
 #define GP_CLK_N_DEFAULT                        140
 #define GP_CLK_D_DEFAULT			70  /* 50% duty cycle */
 #define IMM_PWM_MULTIPLIER			140
-#elif defined(CONFIG_MACH_FORTUNA_TMO)
+#elif defined(CONFIG_SEC_FORTUNA_PROJECT)
 #define GP_CLK_M_DEFAULT			3
 #define GP_CLK_N_DEFAULT                        137
 #define GP_CLK_D_DEFAULT			63  /* 50% duty cycle */

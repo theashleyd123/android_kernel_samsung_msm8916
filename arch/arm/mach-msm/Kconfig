@@ -745,6 +745,13 @@ config MACH_FORTUNA_EUR_OPEN
 	help
 	  Support for Samsung FORTUNA EUR OPEN device.
 
+config MACH_FORTUNA_AIO
+    depends on SEC_FORTUNA_PROJECT
+        default n
+        bool "Samsung FORTUNA USA AIO"
+        help
+          Support for Samsung FORTUNA device.
+
 config MACH_FORTUNA_TFN
     depends on SEC_FORTUNA_PROJECT
         default n
