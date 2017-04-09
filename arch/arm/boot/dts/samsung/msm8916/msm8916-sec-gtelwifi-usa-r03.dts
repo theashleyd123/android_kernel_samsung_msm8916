@@ -33,11 +33,4 @@
 			reg = <0x0 0x89300000 0x0 0x0600000>;
 		};
 	};
-
-};
-
-/* overwrite s2 cpr voltage for model variant */
-&apc_vreg_corner {
-	qcom,cpr-voltage-ceiling = <1050000 1150000 1350000>;
-	qcom,cpr-voltage-floor = <1050000 1050000 1162500>;
 };
