@@ -137,6 +137,12 @@ config IMX134
 		HFR @60fps and @120fps,
 		Video HDR support.
 
+config CAMERA_SYSFS_V2
+	bool "CAMERA SYS"
+	depends on MSMB_CAMERA
+	---help---
+		CAMERA SYS.
+
 config IMX132
 	bool "Sensor IMX132 (BAYER 2M)"
 	depends on MSMB_CAMERA

@@ -58,6 +58,11 @@ static int table_size;
 extern unsigned int system_rev;
 #endif
 
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+extern char rear_cam_info[100];		//camera_info
+extern char front_cam_info[100];	//camera_info
+#endif
+
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
 
@@ -981,6 +986,22 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 	CDBG("%s qcom,mclk-23880000 = %d\n", __func__,
 		s_ctrl->set_mclk_23880000);
 
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+	/* camera information */
+	if (cell_id == 0) {
+		rc = msm_camera_get_dt_camera_info(of_node, rear_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	} else {
+		rc = msm_camera_get_dt_camera_info(of_node, front_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#endif
 	return rc;
 
 FREE_VREG_DATA:

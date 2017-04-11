@@ -385,6 +385,42 @@ static ssize_t front_camera_firmware_full_store(struct device *dev,
 }
 #endif
 
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+char rear_cam_info[100] = "NULL\n";	//camera_info
+static ssize_t rear_camera_info_show(struct device *dev,
+					 struct device_attribute *attr, char *buf)
+{
+	CDBG("[FW_DBG] cam_info : %s\n", rear_cam_info);
+	return snprintf(buf, sizeof(rear_cam_info), "%s", rear_cam_info);
+}
+
+static ssize_t rear_camera_info_store(struct device *dev,
+					  struct device_attribute *attr, const char *buf, size_t size)
+{
+	CDBG("[FW_DBG] buf : %s\n", buf);
+//	snprintf(rear_cam_info, sizeof(rear_cam_info), "%s", buf);
+
+	return size;
+}
+
+char front_cam_info[100] = "NULL\n";	//camera_info
+static ssize_t front_camera_info_show(struct device *dev,
+					 struct device_attribute *attr, char *buf)
+{
+	CDBG("[FW_DBG] cam_info : %s\n", front_cam_info);
+	return snprintf(buf, sizeof(front_cam_info), "%s", front_cam_info);
+}
+
+static ssize_t front_camera_info_store(struct device *dev,
+					  struct device_attribute *attr, const char *buf, size_t size)
+{
+	CDBG("[FW_DBG] buf : %s\n", buf);
+//	snprintf(front_cam_info, sizeof(front_cam_info), "%s", buf);
+
+	return size;
+}
+#endif
+
 static DEVICE_ATTR(rear_camtype, S_IRUGO, back_camera_type_show, NULL);
 static DEVICE_ATTR(rear_camfw, S_IRUGO|S_IWUSR|S_IWGRP,
     back_camera_firmware_show, back_camera_firmware_store);
@@ -402,6 +438,12 @@ static DEVICE_ATTR(front_camfw, S_IRUGO|S_IWUSR|S_IWGRP,
 		front_camera_firmware_show, front_camera_firmware_store);
 static DEVICE_ATTR(front_camfw_load, S_IRUGO|S_IWUSR|S_IWGRP,
 		front_camera_firmware_load_show, front_camera_firmware_load_store);
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+static DEVICE_ATTR(rear_caminfo, S_IRUGO|S_IWUSR|S_IWGRP,
+		rear_camera_info_show, rear_camera_info_store);
+static DEVICE_ATTR(front_caminfo, S_IRUGO|S_IWUSR|S_IWGRP,
+		front_camera_info_show, front_camera_info_store);
+#endif
 
 
 static DEVICE_ATTR(front_camfw_full, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -521,6 +563,14 @@ static int __init msm_sensor_init_module(void)
 		goto device_create_fail;
 	}
 
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+	if (device_create_file(cam_dev_back, &dev_attr_rear_caminfo) < 0) {
+		printk("Failed to create device file!(%s)!\n",
+			dev_attr_rear_caminfo.attr.name);
+		goto device_create_fail;
+	}
+#endif
+
 	cam_dev_front = device_create(camera_class, NULL,
 		2, NULL, "front");
 	if (IS_ERR(cam_dev_front)) {
@@ -549,6 +599,14 @@ static int __init msm_sensor_init_module(void)
 		    dev_attr_rear_camfw_full.attr.name);
 		goto device_create_fail;
 	}
+
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+	if (device_create_file(cam_dev_front, &dev_attr_front_caminfo) < 0) {
+		printk("Failed to create device file!(%s)!\n",
+			dev_attr_front_caminfo.attr.name);
+		goto device_create_fail;
+	}
+#endif
 
 	init_waitqueue_head(&s_init->state_wait);
 
