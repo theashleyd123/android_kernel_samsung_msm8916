@@ -108,7 +108,7 @@ static struct msm_sensor_fn_t db8221a_sensor_func_tbl = {
 };
 #endif
 
-#if defined(CONFIG_FLED_LM3632)
+#if defined(CONFIG_FLED_LM3632) || defined(CONFIG_FLED_KTD2692)
 static struct msm_sensor_fn_t front_flash_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
@@ -488,7 +488,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	if(slave_info->camera_id == CAMERA_2){
 		s_ctrl->func_tbl = &sr200pc20_sensor_func_tbl ;
 	}
-#elif defined(CONFIG_FLED_LM3632)
+#elif defined(CONFIG_FLED_LM3632) || defined(CONFIG_FLED_KTD2692)
 	if(slave_info->camera_id == CAMERA_1){
 		s_ctrl->func_tbl = &front_flash_func_tbl ;
 	}
