@@ -85,6 +85,7 @@ obj-$(CONFIG_TOUCHSCREEN_BU21150)	+= bu21150.o
 obj-$(CONFIG_INPUT_MT_WRAPPER)		+= input_mt_wrapper.o
 obj-$(CONFIG_TOUCHSCREEN_IT7260_I2C)    += it7258_ts_i2c.o
 obj-$(CONFIG_TOUCHSCREEN_IST30XX_CORE3) += imagis_core3/
+obj-$(CONFIG_TOUCHSCREEN_IST30XXC) += imagis_30xxc/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S7301)      += synaptics_s7301.o synaptics_fw_updater.o synaptics_sysfs.o
 obj-$(CONFIG_TOUCHSCREEN_MMS300)   += mms300.o
 obj-$(CONFIG_TOUCHSCREEN_MMS300_A)   += mms300_a.o
