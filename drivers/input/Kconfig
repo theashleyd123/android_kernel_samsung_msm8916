@@ -213,6 +213,15 @@ config INPUT_BOOSTER
 	help
 	  Say Y here if you want to boost when some keys and touches are pressed. If unsure, say N.
 
+config TOUCHSCREEN_TA_CALLBACK_ENABLE
+	tristate "Touchscren ta callback"
+	depends on INPUT
+	---help---
+	Say Y here if you want to use ta callback;
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ta.
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"

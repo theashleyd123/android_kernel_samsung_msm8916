@@ -18,7 +18,8 @@
 #define USE_TSP_TA_CALLBACKS
 #elif defined(CONFIG_SEC_K5_PROJECT) || defined(CONFIG_SEC_H7_PROJECT) || defined(CONFIG_SEC_A8_PROJECT)
 #define USE_TSP_TA_CALLBACKS
-
+#elif defined(CONFIG_TOUCHSCREEN_TA_CALLBACK_ENABLE)
+#define USE_TSP_TA_CALLBACKS
 #else	/* default */
 #undef USE_TSP_TA_CALLBACKS
 #endif
