@@ -85,6 +85,20 @@ config SENSORS_GP2A002
 	  If you say yes here you get support for sharp Sensortec's
 	  proximity sensors GP2A002.
 
+config SENSORS_GP2A002_PMIC_LEDA
+	depends on I2C
+	tristate "GP2A002 leda_en controlled by SM5703 (SUB PMIC)"
+	default n
+	help
+	  This option enables leda_en controlled by SM5703 using GP2A002 driver.
+
+config SENSORS_GP2A002_VDD_ALWAYSON
+	depends on I2C
+	tristate "GP2A002 vddvio are always on"
+	default n
+	help
+	  Say Y here if GP2A002 vddvio are always on.
+
 config SENSORS_LEDA_EN_GPIO
 	depends on I2C
 	tristate "LEDA_EN controlled by GPIO"
