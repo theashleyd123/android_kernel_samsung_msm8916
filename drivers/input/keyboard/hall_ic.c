@@ -22,6 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/wakelock.h>
 #include <linux/hall.h>
+#include <linux/regulator/consumer.h>
 
 extern struct device *sec_key;
 struct device *sec_device_create(void *drvdata, const char *fmt);
@@ -123,6 +124,10 @@ static void flip_cover_rear_work(struct work_struct *work)
 static void flip_cover_work(struct work_struct *work)
 {
 	bool first;
+#if defined(CONFIG_SENSORS_HALL_DETECT_NOISE)
+	bool comp_val;
+	int i;
+#endif
 	struct hall_drvdata *ddata =
 		container_of(work, struct hall_drvdata,
 				flip_cover_dwork.work);
@@ -131,6 +136,16 @@ static void flip_cover_work(struct work_struct *work)
 
 	printk("keys:%s #1 : %d\n", __func__, first);
 
+#if defined(CONFIG_SENSORS_HALL_DETECT_NOISE)
+	for (i = 5; i > 0; i--) {
+		usleep_range(6000, 6000); /* 6 ms */
+		comp_val = gpio_get_value(ddata->gpio_flip_cover);
+		if (comp_val != first) {
+			pr_err("%s : Value is not same!\n", __func__);
+			return;
+		}
+	}
+#endif
 	flip_cover = first;
 	input_report_switch(ddata->input,
 			SW_FLIP, flip_cover);
