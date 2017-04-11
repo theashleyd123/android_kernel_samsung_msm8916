@@ -39,15 +39,22 @@
 #include <linux/regulator/consumer.h>
 
 
-#ifdef CONFIG_SEC_E7_PROJECT
+#if defined(CONFIG_SEC_E7_PROJECT)
 #define TC300K_FW_NAME "tc360_e7"
-#else
+#elif defined(CONFIG_SEC_E5_PROJECT)
 #define TC300K_FW_NAME "tc360_e5"
+#elif defined(CONFIG_SEC_J5_PROJECT)
+#define TC300K_FW_NAME "tc360_j5"
 #endif
 
 #define USE_OPEN_CLOSE
 
+#if defined(CONFIG_SEC_J5_PROJECT)
+#define TC300K_FW_BUILTIN_PATH	"coreriver"
+#else
 #define TC300K_FW_BUILTIN_PATH	"tkey"
+#endif
+
 #define TC300K_FW_IN_SDCARD_PATH	"/sdcard/"
 
 #define TC300K_POWERON_DELAY	300

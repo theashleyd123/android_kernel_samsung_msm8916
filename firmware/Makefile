@@ -135,8 +135,8 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
-fw-shipped-$(CONFIG_KEYBOARD_TC360_TOUCHKEY) += coreriver/tc360_j5.fw
-fw-shipped-$(CONFIG_KEYBOARD_TC360_TOUCHKEY) += coreriver/tc360_j5_dtv.fw
+fw-shipped-$(CONFIG_KEYBOARD_TC360_TKEY) += coreriver/tc360_j5.fw
+fw-shipped-$(CONFIG_KEYBOARD_TC360_TKEY) += coreriver/tc360_j5_dtv.fw
 # for Input Device
 fw-shipped-$(CONFIG_KEYBOARD_ABOV_TOUCH) += abov/abov_tk_a3.fw
 ifdef CONFIG_SEC_J7_PROJECT
