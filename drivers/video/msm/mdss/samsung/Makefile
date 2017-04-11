@@ -242,6 +242,10 @@ ifeq ($(shell [ -d $(DISPLAY_DIR)/S6D7AA0X62_BV050HDM ] && echo y), y)
 obj-y += S6D7AA0X62_BV050HDM/
 endif
 
+ifeq ($(shell [ -d $(DISPLAY_DIR)/S6E8AA5X01_AMS497HY01 ] && echo y), y)
+obj-y += S6E8AA5X01_AMS497HY01/
+endif
+
 ifeq ($(shell [ -d $(DISPLAY_DIR)/ILI6236S_CPT50 ] && echo y), y)
 obj-y += ILI6236S_CPT50/
 endif
