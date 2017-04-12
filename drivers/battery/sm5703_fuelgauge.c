@@ -431,7 +431,18 @@ unsigned int sm5703_get_soc(struct i2c_client *client)
 	int ta_exist;
 	int curr_cal;
 	int temp_cal_fact;
+	union power_supply_propval value;
 	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
+
+#if (defined(CONFIG_SEC_J5_PROJECT) || defined(CONFIG_SEC_J5N_PROJECT)) && !defined(CONFIG_MACH_J5LTE_CHN_CMCC)  /* only for J5 LDO1 noise */
+	value.intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+	psy_do_property("sm5703-charger", get,
+			POWER_SUPPLY_PROP_HEALTH, value);
+	dev_dbg(&client->dev, "%s: get POWER_SUPPLY_PROP_HEALTH = 0x%x\n", __func__, value.intval);
+
+	ta_exist = ((value.intval == POWER_SUPPLY_HEALTH_GOOD) | fuelgauge->is_charging) && (fuelgauge->info.batt_current > 0);
+	dev_info(&client->dev, "%s: curr_cal = 0x%x , ta_exist = %d\n", __func__, fuelgauge->info.curr_cal, ta_exist);
+#endif
 
 	// abnormal case.... SW reset
 	ret = sm5703_fg_i2c_read_word(client, SM5703_REG_FG_OP_STATUS);
@@ -564,6 +575,43 @@ unsigned int sm5703_get_soc(struct i2c_client *client)
 		soc = ((ret&0xff00)>>8) * 10; //integer bit;
 		soc = soc + (((ret&0x00ff)*10)/256); // integer + fractional bit
 	}
+
+#if (defined(CONFIG_SEC_J5_PROJECT) || defined(CONFIG_SEC_J5N_PROJECT)) && !defined(CONFIG_MACH_J5LTE_CHN_CMCC)  /* only for J5 LDO1 noise */
+	// for charger setting
+	if(fuelgauge->is_charging) //During charging
+	{
+		if (fuelgauge->info.batt_ocv >= 4200)
+		{
+			value.intval = 0;
+			psy_do_property("sm5703-charger", set,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
+		}
+		else if (fuelgauge->info.batt_ocv >= 4100)
+		{
+			value.intval = 1;
+			psy_do_property("sm5703-charger", set,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
+		}
+		else if (fuelgauge->info.batt_ocv >= 4080)
+		{
+			value.intval = 2;
+			psy_do_property("sm5703-charger", set,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
+		}
+		else if (fuelgauge->info.batt_ocv >= 4000)
+		{
+			value.intval = 3;
+			psy_do_property("sm5703-charger", set,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
+		}
+		else if (fuelgauge->info.batt_ocv >= 3980)
+		{
+			value.intval = 4;
+			psy_do_property("sm5703-charger", set,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, value);
+		}
+	}
+#endif
 
 	dev_info(&client->dev, "%s: read = 0x%x, soc = %d\n", __func__, ret, soc);
 	fuelgauge->info.batt_soc = soc;
