@@ -3796,3 +3796,22 @@ int mdss_fb_suspres_panel(struct device *dev, void *data)
 	}
 	return rc;
 }
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+void mdss_samsung_update_brightness_value(void)
+{
+	int bl_lvl;
+	struct samsung_display_driver_data *vdd = samsung_get_vdd();
+	struct msm_fb_data_type *mfd = dev_get_drvdata(backlight_led.dev->parent);
+
+	if((vdd->bl_level == 0) && (backlight_led.brightness != 0)) {
+		MDSS_BRIGHT_TO_BL(bl_lvl, backlight_led.brightness, mfd->panel_info->bl_max,
+				mfd->panel_info->brightness_max);
+		if (!IS_CALIB_MODE_BL(mfd))
+			mdss_fb_scale_bl(mfd, &bl_lvl);
+		vdd->bl_level = bl_lvl;
+	}
+}
+EXPORT_SYMBOL(mdss_samsung_update_brightness_value);
+#endif
+
