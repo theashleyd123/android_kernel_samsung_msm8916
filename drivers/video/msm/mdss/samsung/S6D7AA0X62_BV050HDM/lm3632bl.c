@@ -68,11 +68,6 @@ void mdss_backlight_ic_power_on(int enable)
 	struct backlight_info *info = bl_info;
 	int i;
 	struct samsung_display_driver_data *vdd = samsung_get_vdd();
-	if (!mdss_panel_attach_get(vdd->ctrl_dsi[DISPLAY_1]))
-	{
-		pr_err("%s: mdss_panel_attach_get(%d) : %d\n",__func__, vdd->ctrl_dsi[DISPLAY_1]->ndx, mdss_panel_attach_get(vdd->ctrl_dsi[DISPLAY_1]));
-		return;
-	}
 	if (!info) {
 		pr_info("%s error bl_info", __func__);
 		return ;
@@ -84,6 +79,9 @@ void mdss_backlight_ic_power_on(int enable)
 		msleep(5);
 		for (i = 0; i <info->bl_ic_settings.table_length;i=i+2)
 			lm3632_write_byte(info->lm3632, info->bl_ic_settings.table[i], info->bl_ic_settings.table[i+1]);
+		/* In case of PBA booting, turn bl_out off */
+		if (!mdss_panel_attach_get(vdd->ctrl_dsi[DISPLAY_1]))
+			lm3632_write_byte(info->lm3632, 0x0A, 0x00);
 		if (gpio_is_valid(info->pdata->gpio_backlight_panel_enp))
 			gpio_set_value(info->pdata->gpio_backlight_panel_enp,1);
 		msleep(5);

@@ -95,6 +95,24 @@ static int mdss_panel_on_post(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	pr_info("%s %d\n", __func__, ctrl->ndx);
 
+	if(vdd->dtsi_data[ctrl->ndx].sleep_out_command_enable)
+	{ 
+		char rbuf[2] = {0,0};
+		int times = 100;
+		while(times > 0)
+		{
+			mdss_samsung_panel_data_read(ctrl, &vdd->dtsi_data[ctrl->ndx].panel_status_read_cmds[vdd->panel_revision], rbuf, 0);
+			pr_info("%s: check register %x\n", __func__,rbuf[0]);
+			if( rbuf[0] == vdd->dtsi_data[ctrl->ndx].check_panel_status_result)
+				break;
+			else
+			{
+				if(vdd->panel_func.samsung_panel_sleep_out)
+					vdd->panel_func.samsung_panel_sleep_out(ctrl);
+			}
+			times--;
+		}
+	}
 	if(vdd->support_cabc)
 		mdss_samsung_cabc_update();
 
@@ -104,6 +122,20 @@ static int mdss_panel_on_post(struct mdss_dsi_ctrl_pdata *ctrl)
 		is_first_boot = 0;
 	}
 
+	return true;
+}
+static int mdss_panel_sleep_out(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct samsung_display_driver_data *vdd = check_valid_ctrl(ctrl);
+
+	if (IS_ERR_OR_NULL(vdd)) {
+		pr_err("%s: Invalid data ctrl : 0x%zx vdd : 0x%zx", __func__, (size_t)ctrl, (size_t)vdd);
+		return false;
+	}
+
+	pr_info("%s \n", __func__);
+
+	mdss_samsung_send_cmd(ctrl,PANEL_SLEEP_OUT);
 	return true;
 }
 static int mdss_panel_revision(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -267,7 +299,7 @@ static void mdss_panel_init(struct samsung_display_driver_data *vdd)
 	vdd->panel_func.samsung_panel_off_pre = mdss_panel_off_pre;
 	vdd->panel_func.samsung_panel_off_post = NULL;
 	vdd->panel_func.samsung_backlight_late_on = backlight_tft_late_on;
-
+	vdd->panel_func.samsung_panel_sleep_out = mdss_panel_sleep_out;
 	/* DDI RX */
 	vdd->panel_func.samsung_panel_revision = mdss_panel_revision;
 	vdd->panel_func.samsung_manufacture_date_read = NULL;
