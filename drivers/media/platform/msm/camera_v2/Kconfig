@@ -210,6 +210,7 @@ config SR200PC20
 	---help---
 	  Siliconfile 2.0MP sensor,
 	  Front sensor.
+
 config SR030PC50
 	bool "Sensor for front camera"
 	depends on MSMB_CAMERA
@@ -363,6 +364,7 @@ config CAM_USE_EXT_VANA_GPIO
 	depends on MSMB_CAMERA
 	---help---
 	  Board use external LDO controlled by GPIO.
+
 config SR130PC20
 	bool "Sensor s5k4e1 (SOC 1.3MP)"
 	depends on MSMB_CAMERA
