@@ -69,7 +69,7 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
 #define SUPPORT_PANEL_COUNT 2
 #define SUPPORT_PANEL_REVISION 20
 #define PARSE_STRING 64
-#define MAX_EXTRA_POWER_GPIO 3
+#define MAX_EXTRA_POWER_GPIO 4
 #define MAX_BACKLIGHT_TFT_GPIO 4
 
 /* Brightness stuff */
@@ -122,6 +122,7 @@ enum mipi_samsung_cmd_list {
 	PANEL_HSYNC_ON,
 	PANEL_CABC_ON_DUTY,
 	PANEL_CABC_OFF_DUTY,
+	PANEL_SLEEP_OUT,
 };
 
 enum {
@@ -192,8 +193,13 @@ struct samsung_display_dtsi_data {
 	bool samsung_change_acl_by_brightness;
 	bool samsung_esc_clk_128M;
 	bool samsung_osc_te_fitting;
+	bool samsung_support_factory_panel_swap;
 	u32  samsung_power_on_reset_delay ;
 	u32  samsung_dsi_off_reset_delay;
+	char sleep_out_command_enable;
+	int check_panel_status_result;
+	struct dsi_panel_cmds sleep_out_cmds[SUPPORT_PANEL_REVISION];
+	struct dsi_panel_cmds panel_status_read_cmds[SUPPORT_PANEL_REVISION];
 	/*
 	 * index[0] : array index for te fitting command from "ctrl->on_cmd"
 	 * index[1] : array index for te fitting command from "osc_te_fitting_tx_cmds"
@@ -329,6 +335,7 @@ struct samsung_display_dtsi_data {
 
 	/* Backlight IC discharge delay */
 	int blic_discharging_delay_tft;
+	int cabc_delay;
 };
 
 struct samsung_brightenss_data {
@@ -375,6 +382,7 @@ struct esd_recovery {
 	bool is_enabled_esd_recovery;
 	int esd_gpio;
 	unsigned long irqflags;
+	u32 delay_intervel_ms;
 	void (*esd_irq_enable) (bool enable, bool nosync, void *data);
 };
 
@@ -395,6 +403,7 @@ struct panel_func {
 	int (*samsung_panel_on_post)(struct mdss_dsi_ctrl_pdata *ctrl);
 	int (*samsung_panel_off_pre)(struct mdss_dsi_ctrl_pdata *ctrl);
 	int (*samsung_panel_off_post)(struct mdss_dsi_ctrl_pdata *ctrl);
+	int (*samsung_panel_sleep_out)(struct mdss_dsi_ctrl_pdata *ctrl);
 	void (*samsung_backlight_late_on)(struct mdss_dsi_ctrl_pdata *ctrl);
 	void (*samsung_panel_init)(struct samsung_display_driver_data *vdd);
 
@@ -482,7 +491,9 @@ struct samsung_display_driver_data {
 	*/
 	struct mutex vdd_lock;
 	struct mutex vdd_blank_unblank_lock;
+	struct mutex vdd_hall_ic_blank_unblank_lock;
 	struct mutex vdd_hall_ic_lock;
+	struct mutex vdd_bl_level_lock;
 
 	int vdd_blank_mode[SUPPORT_PANEL_COUNT];
 
@@ -630,7 +641,7 @@ void mdss_samsung_dump_regs(void);
 void mdss_samsung_dsi_dump_regs(int dsi_num);
 void mdss_mdp_underrun_dump_info(void);
 void mdss_samsung_dsi_te_check(void);
-void mdss_samsung_fence_dump(struct sync_fence *fence);
+void mdss_samsung_fence_dump(char *interface, struct sync_fence *fence);
 
 /* BRIGHTNESS RELATED FUNCTION */
 int get_cmd_index(struct samsung_display_driver_data *vdd, int ndx);
@@ -673,4 +684,3 @@ int samsung_display_hall_ic_status(struct notifier_block *nb,
 #include "S6E88A0_AMS452EF01/ss_dsi_panel_S6E88A0_AMS452EF01.h"
 /*     PANEL_HEADER END        */
 #endif
-
