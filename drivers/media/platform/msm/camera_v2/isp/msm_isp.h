@@ -509,9 +509,7 @@ struct vfe_device {
 	uint8_t taskletq_idx;
 	spinlock_t  tasklet_lock;
 	spinlock_t  shared_data_lock;
-#if defined(CONFIG_SR200PC20) && defined(CONFIG_SR544)
 	spinlock_t  sof_lock;
-#endif
 	struct list_head tasklet_q;
 	struct tasklet_struct vfe_tasklet;
 	struct msm_vfe_tasklet_queue_cmd
