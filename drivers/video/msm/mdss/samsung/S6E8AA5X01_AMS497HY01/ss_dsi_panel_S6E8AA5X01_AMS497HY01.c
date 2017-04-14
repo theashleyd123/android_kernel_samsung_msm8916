@@ -740,11 +740,8 @@ static int __init samsung_panel_init(void)
 
 	if (!strncmp(vdd->panel_name, old_panel_string, strlen(old_panel_string)))
 		vdd->panel_func.samsung_panel_init = mdss_panel_init;
-	else if (!strncmp(vdd->panel_name, new_panel_string, strlen(new_panel_string))) {
-		strncpy(vdd->panel_name, new_panel_string, strlen(new_panel_string)+1);
-		strncat(vdd->panel_name, ":1:none", 7);
+	else if (!strncmp(vdd->panel_name, new_panel_string, strlen(new_panel_string)))
 		vdd->panel_func.samsung_panel_init = mdss_panel_init;
-	}
 
 	return 0;
 }
