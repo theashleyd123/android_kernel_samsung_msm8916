@@ -36,7 +36,7 @@
 	samsung,simslot {
 		compatible = "simslot";
 		samsung,sim-slot = <&msm_gpio 72 0x1>;
-		//low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
+		low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
 		status = "ok";
 	};
 
@@ -70,6 +70,7 @@
 			imagis,ic-version = "ist3038c";
 			imagis,project-name = "j5_octa";
 			imagis,tkey = <1>;
+			imagis,octa-hw = <1>;
 		};
 	};
 
@@ -97,6 +98,7 @@
                         coreriver,tkey-keycodes = <254 158>;
                         coreriver,i2c-pull-up = <1>;
                         coreriver,gpio_seperated = <1>;
+			coreriver,fw-name = "tc360_j5";
                         coreriver,firm-up;
                 };
         };
@@ -232,8 +234,8 @@
 			sm5703_fled {
 				compatible = "siliconmitus,sm5703-fled";
 				enable = <1 1>;
-				flash_current = <1000>;
-				movie_current = <200>;
+				flash_current = <1200>;
+				movie_current = <170>;
 				sm5703,led1-gpio = <&msm_gpio 36 0x00>;
 				sm5703,led2-gpio = <&msm_gpio 34 0x00>;
 				pinctrl-names = "fled_default","fled_sleep";
