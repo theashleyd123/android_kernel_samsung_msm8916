@@ -282,17 +282,16 @@ ifeq ($(CONFIG_SEC_FORTUNA_PROJECT),y)
 			msm8916-sec-fortuna-r09.dtb \
 			msm8916-sec-fortuna-r10.dtb \
 			msm8916-sec-fortuna-r11.dtb
-	else ifeq ($(CONFIG_MACH_FORTUNA_AIO),y)
-		dtb-y += msm8916-sec-fortuna-aio-r00.dtb \
-			msm8916-sec-fortuna-aio-r01.dtb \
-			msm8916-sec-fortuna-aio-r02.dtb \
-			msm8916-sec-fortuna-aio-r03.dtb \
-			msm8916-sec-fortuna-aio-r04.dtb \
-			msm8916-sec-fortuna-aio-r06.dtb \
-			msm8916-sec-fortuna-aio-r07.dtb \
-			msm8916-sec-fortuna-aio-r09.dtb \
-			msm8916-sec-fortuna-aio-r10.dtb \
-			msm8916-sec-fortuna-aio-r11.dtb
+	else ifeq ($(CONFIG_MACH_FORTUNA),y)
+		dtb-y += msm8916-sec-fortuna-r00.dtb \
+			msm8916-sec-fortuna-r01.dtb \
+			msm8916-sec-fortuna-r03.dtb \
+			msm8916-sec-fortuna-r04.dtb \
+			msm8916-sec-fortuna-r06.dtb \
+			msm8916-sec-fortuna-r07.dtb \
+			msm8916-sec-fortuna-r09.dtb \
+			msm8916-sec-fortuna-r10.dtb \
+			msm8916-sec-fortuna-r11.dtb
         endif
 
 endif
