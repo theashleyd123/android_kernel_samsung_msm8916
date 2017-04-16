@@ -445,6 +445,7 @@ static void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev, stream_info);
 }
 
+#if defined(CONFIG_SR200PC20) && defined(CONFIG_SR544)
 void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts) {
 	struct msm_isp_event_data sof_event;
@@ -488,7 +489,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 			vfe_dev->axi_data.frame_id[session_id]);*/
 	}
 }
-
+#else
 void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts) {
 	struct msm_isp_event_data event_data;
@@ -534,6 +535,8 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 			vfe_dev->axi_data.frame_id[session_id]);
 	}
 }
+
+#endif
 
 void msm_isp_calculate_framedrop(
 	struct msm_vfe_axi_shared_data *axi_data,
