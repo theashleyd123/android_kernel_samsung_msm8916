@@ -513,7 +513,6 @@ int32_t msm_sensor_driver_probe(void *setting)
 		s_ctrl->func_tbl = &db8221a_sensor_func_tbl ;
 	}
 #endif
-
 	CDBG("s_ctrl[%d] %p", slave_info->camera_id, s_ctrl);
 
 	if (s_ctrl->is_probe_succeed == 1) {
@@ -724,7 +723,7 @@ int32_t msm_sensor_driver_probe(void *setting)
   if(system_rev == 0) {
   	if(slave_info->camera_id == CAMERA_1){
 		  s_ctrl->sensor_device_type = MSM_CAMERA_I2C_DEVICE;
-	  	rc = msm_sensor_driver_create_i2c_v4l_subdev(s_ctrl);
+	  	rc = msm_sensor_driver_create_i2c_v4l_subdev(s_ctrl);	//kidggang
   	} else {
   		if (s_ctrl->sensor_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 	  		rc = msm_sensor_driver_create_v4l_subdev(s_ctrl);
