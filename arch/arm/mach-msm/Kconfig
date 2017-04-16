@@ -801,6 +801,27 @@ config MACH_FORTUNA_EUR_OPEN
 	help
 	  Support for Samsung FORTUNA EUR OPEN device.
 
+config MACH_FORTUNA_SEA_OPEN
+	depends on SEC_FORTUNA_PROJECT
+	default n
+	bool "Samsung FORTUNA SEA Open "
+	help
+	  Support for Samsung FORTUNA SEA Open device.
+
+config MACH_FORTUNA3G_EUR
+	depends on SEC_FORTUNA_PROJECT
+	default n
+	bool "Samsung FORTUNA 3G Europe Open "
+	help
+	  Support for Samsung FORTUNA 3G Europe Open device.
+
+config MACH_FORTUNAVE3G_EUR
+	depends on SEC_FORTUNA_PROJECT
+		default n
+		bool "Samsung FORTUNAVE 3G Europe Open "
+		help
+		  Support for Samsung FORTUNAVE 3G Europe Open device.
+
 config MACH_FORTUNA
     depends on SEC_FORTUNA_PROJECT
         default n
